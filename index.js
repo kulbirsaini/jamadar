@@ -587,6 +587,65 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
   );
 }
 
+/*
+ * Migrates database to a provided configuration.
+ * Takes no callback.
+ *
+ * @method migrate
+ * @param {String} dbName Database name
+ * @param {Object} tableData Object describing tables.
+ *        Example:
+ *        {
+ *          tableId: 'tableName',
+ *          user: 'users',
+ *          schedule: 'schedules'
+ *        }
+ * @param {Array} indexData Array of objects containing index data.
+ *        Example:
+ *        {
+ *          tableId: [
+ *            { name: 'field1' },
+ *            { name: 'field2' },
+ *            { name: 'field2_and_field3_index', [ 'field2', 'field3' ] }
+ *          ],
+ *          user: [
+ *            { name: 'username' },
+ *            { name: 'email' }
+ *          ]
+*          }
+ * @return {Promise} Returns a promise resolved on and rejected on error
+ */
+function migrate(dbName, tableData, indexData) {
+  var tableNames = Object.keys(tableData).map(function(tableId) { return tableData[tableId]; });
+  return new Promise(function(resolve, reject) {
+    createDbIfNotExists(dbName)
+      .then(function(dbCreatedOrFound) {
+        if (dbCreatedOrFound) {
+          return createTablesIfNotExist(dbName, tableNames);
+        } else {
+          reject(new Error('We dont have a database for unknown reasons'));
+        }
+      })
+      .then(function(tableCreatedOrFound) {
+        if (tableCreatedOrFound) {
+          return Promise.all(
+            Object.keys(indexData).map(function(tableId) {
+              return createIndexesIfNotExist(dbName, tableData[tableId], indexData[tableId]);
+            })
+          );
+        } else {
+          reject(new Error('We dont have a database table for unknown reasons'));
+        }
+      })
+      .then(function() {
+        resolve(true);
+      })
+      .catch(function(error) {
+        reject(error);
+      });
+  });
+}
+
 function init(dbConfig) {
   r = rethinkdbdash(dbConfig);
   return {
@@ -617,7 +676,8 @@ function init(dbConfig) {
     dropIndexesIfExist: dropIndexesIfExist,
     resetTable: resetTable,
     resetTables: resetTables,
-    resetDb: resetDb
+    resetDb: resetDb,
+    migrate: migrate
   };
 }
 
