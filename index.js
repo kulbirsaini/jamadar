@@ -472,7 +472,15 @@ function createIndex(dbName, tableName, indexName, columns) {
     indexCreateQuery.run()
       .then(function(result) {
         debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'created?', result.created === 1);
-        resolve(result.created === 1);
+        return r.db(dbName).table(tableName).indexWait(indexName).run();
+      })
+      .then(function(result) {
+        var index = result.filter(function(wait) {
+          return wait.index === indexName;
+        });
+        var indexReady = index.length > 0 && index[0].ready;
+        debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'ready?', indexReady);
+        resolve(result.ready);
       })
       .catch(function(error) {
         reject(error);
@@ -537,11 +545,9 @@ function createIndexIfNotExists(dbName, tableName, indexName, columns) {
  * @return {Promise} Returns a promise resolved on successful creation/existence of indexes and rejected on error
  */
 function createIndexesIfNotExist(dbName, tableName, indexesData) {
-  return Promise.all(
-    indexesData.map(function(indexData) {
-      return createIndexIfNotExists(dbName, tableName, indexData.name, indexData.columns);
-    })
-  );
+  return Promise.map(indexesData, function(indexData) {
+    return createIndexIfNotExists(dbName, tableName, indexData.name, indexData.columns);
+  }, { concurrency: 1 }).all();
 }
 
 /*
