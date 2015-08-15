@@ -652,6 +652,266 @@ function migrate(dbName, tableData, indexData) {
   });
 }
 
+function model(r, dbName, tableName) {
+  /**
+   * Returns a query with table selected.
+   *
+   * @method table
+   * @return {Query} A rethinkdb query
+   */
+  function table() {
+    return r.db(dbName).table(tableName);
+  }
+
+  /**
+   * Get a rethinkdb query selecting an entry with id.
+   * Ref: http://rethinkdb.com/api/javascript/get/
+   *
+   * @method get
+   * @param {String|Integer} id Primary key for the document
+   * @return {Query} A rethinkdb query
+   */
+  function get(id) {
+    return table().get(id);
+  }
+
+  /**
+   * Get a rethinkdb query selecting a field or multiple fields.
+   * A secondary index is a must for these queries.
+   * Ref: http://rethinkdb.com/api/javascript/get_all/
+   *
+   * @method getAll
+   * @param {String|Array} fields A single field as string or an array of fields.
+   * @param {String} indexName A secondary index corresponding to the field or a compound index in case of multiple fields.
+   * @return {Query} A rethinkdb query
+   */
+  function getAll(fields, indexName) {
+    return table().getAll(fields, { index: indexName });
+  }
+
+  /**
+   * Find an entry with a given id (primary key).
+   * Ref: http://rethinkdb.com/api/javascript/get/
+   *
+   * @method find
+   * @param {String|Integer} id Primary key for the table
+   * @return {Promise} A promise resolved on successful find and rejected on error
+   */
+  function find(id) {
+    return Promise.new(function(resolve, reject) {
+      get(id).run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Find all entries corresponding to the given fields.
+   * A secondary index is a must for these queries.
+   * Ref: http://rethinkdb.com/api/javascript/get_all/
+   *
+   * @method findAll
+   * @param {String|Array} fields A single field as string or an array of fields.
+   * @param {String} indexName A secondary index corresponding to the field or a compound index in case of multiple fields.
+   * @return {Promise} A promise resolved on successful find and rejected on error
+   */
+  function findAll(fields, indexName) {
+    return Promise.new(function(resolve, reject) {
+      getAll(fields, { index: indexName }).run()
+        .then(function(results) {
+          resolve(results);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Filters entries as per the predicate provided.
+   * Ref: http://rethinkdb.com/api/javascript/filter/
+   *
+   * @method filter
+   * @param {Object|Function} predicate A predicate as per http://rethinkdb.com/api/javascript/filter/
+   * @param {Object} options Optional arguments valid for filter query
+   * @return {Promise} A promise resolved on successful filter and rejected on error
+   */
+  function filter(predicate, options) {
+    return Promise.new(function(resolve, reject) {
+      table().filter(predicate, options || {}).run()
+        .then(function(results) {
+          resolve(results);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Inserts an object or objects into the table.
+   * Automatically inserts created_at and updated_at timestamps if not provided with object(s).
+   * Ref: http://rethinkdb.com/api/javascript/insert/
+   *
+   * @method create
+   * @param {Object|Array} objects An object or array or objects to be inserted
+   * @param {Object} options Optional arguments valid for insert query
+   * @return {Promise} Returns a promise resolved on successful insert and rejected on error
+   */
+  function create(objects, options) {
+    var now = Date.now();
+    if (objects instanceof Array) {
+      objects = objects.map(function(object) {
+        object.created_at = object.created_at || now;
+        object.updated_at = object.updated_at || now;
+        return object;
+      });
+    } else {
+      objects.created_at = objects.created_at || now;
+      objects.updated_at = objects.updated_at || now;
+    }
+    return Promise.new(function(resolve, reject) {
+      table().insert(objects, options || {}).run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Updates an object identified by given id.
+   * Automatically updates updated_at timestamp if not provided in updates.
+   * Ref: http://rethinkdb.com/api/javascript/update/
+   *
+   * @method update
+   * @param {String|Integer} id The id of object to update
+   * @param {Object} updates An object describing updates
+   * @param {Object} options Optional arguments valid for update query
+   * @return {Promise} Returns a promise resolved on successful update and rejected on error
+   */
+  function update(id, updates, options) {
+    updates.updated_at = updates.updated_at || Date.now();
+    return Promise.new(function(resolve, reject) {
+      get(id).update(updates, options || {}).run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Replaces an object identified by given id.
+   * Automatically inserts created_at and updated_at timestamps if not provided in the replacement object.
+   * Ref: http://rethinkdb.com/api/javascript/replace/
+   *
+   * @method replace
+   * @param {String|Integer} id The id of object to replace
+   * @param {Object} replacementObject An object replacing the document
+   * @param {Object} options Optional arguments valid for replace query
+   * @return {Promise} Returns a promise resolved on successful replacement and rejected on error
+   */
+  function replace(id, replacementObject, options) {
+    var now = Date.now();
+    replacementObject.created_at = replacementObject.created_at || now;
+    replacementObject.updated_at = replacementObject.updated_at || now;
+    return Promise.new(function(resolve, reject) {
+      get(id).replace(replacementObject, options || {}).run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Deletes a document identified by given id.
+   * Ref: http://rethinkdb.com/api/javascript/delete/
+   *
+   * @method destroy
+   * @param {String|Integer} id The id of object to update.
+   * @param {Object} options Optional arguments valid for delete query
+   * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
+   */
+  function destroy(id, options) {
+    return Promise.new(function(resolve, reject) {
+      get(id).delete(options || {}).run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Deletes documents identified by given fields.
+   * A secondary index must be supplied for this query to execute.
+   * Ref: http://rethinkdb.com/api/javascript/delete/
+   *
+   * @method destroyAll
+   * @param {String|Array} fields A field or an array of fields to use for find query.
+   * @param {String} indexName An index on the given field or a compound index in case of multiple fields.
+   * @param {Object} options Optional arguments valid for delete query
+   * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
+   */
+  function destroyAll(fields, indexName, options) {
+    return Promise.new(function(resolve, reject) {
+      getAll(fields, { index: indexName }).delete(options || {}).run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  /**
+   * Sync write on a given table to permanent stoage.
+   * Good idea to execute this query after multiple write queries with soft durability.
+   * Ref: http://rethinkdb.com/api/javascript/sync/
+   *
+   * @method sync
+   * @return {Promise} Returns a promise resolved on successful sync and rejected on error
+   */
+  function sync() {
+    return Promise.new(function(resolve, reject) {
+      table().sync().run()
+        .then(function(result) {
+          resolve(result);
+        })
+        .catch(function(error) {
+          reject(error);
+        });
+    });
+  }
+
+  return {
+    find: find,
+    findAll: findAll,
+    filter: filter,
+    create: create,
+    update: update,
+    replace: replace,
+    destroy: destroy,
+    destroyAll: destroyAll,
+    sync: sync
+  };
+}
+
 function init(dbConfig) {
   r = rethinkdbdash(dbConfig);
   return {
@@ -683,7 +943,8 @@ function init(dbConfig) {
     resetTable: resetTable,
     resetTables: resetTables,
     resetDb: resetDb,
-    migrate: migrate
+    migrate: migrate,
+    model: model
   };
 }
 
