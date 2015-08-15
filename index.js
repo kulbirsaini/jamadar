@@ -20,9 +20,7 @@ function getDbList() {
         debug('Total databases', databaseNames.length);
         resolve(databaseNames);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -42,9 +40,37 @@ function dbExists(dbName) {
         debug('Database', dbName, 'found?', dbFound);
         resolve(dbFound);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
+  });
+}
+
+/*
+ * Checks if databases exist and returns and array of dbs found.
+ * Takes no callback.
+ *
+ * @method dbsExist
+ * @param {Array} dbNames The names of the databases to check
+ * @return {Promise} Returns a promise resolved on successful calcuation and rejected on error
+ */
+function dbsExist(dbNames) {
+  if (!dbNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(dbNames instanceof Array)) {
+    dbNames = [dbNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    getDbList()
+      .then(function(databaseNames) {
+        var dbsFound = dbNames.filter(function(dbName) {
+          return databaseNames.indexOf(dbName) > -1;
+        });
+        debug('Databases found?', dbsFound.length);
+        resolve(dbsFound);
+      })
+      .catch(reject);
   });
 }
 
@@ -66,9 +92,7 @@ function createDb(dbName) {
         debug('New database', dbName, 'created?', result.dbs_created === 1);
         resolve(result.dbs_created === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -90,9 +114,7 @@ function dropDb(dbName) {
         debug('Database', dbName, 'dropped?', result.dbs_dropped === 1);
         resolve(result.dbs_dropped === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -113,9 +135,7 @@ function createDbIfNotExists(dbName) {
       .then(function(dbFound) {
         return dbFound ? resolve(dbFound) : resolve(createDb(dbName));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -123,7 +143,7 @@ function createDbIfNotExists(dbName) {
  * Checks if databases exist and creates them if they don't
  * Takes no callback.
  *
- * @method createDb
+ * @method createDbsIfNotExist
  * @param {String} dbNames Database name(s)
  * @return {Promise} Returns a promise resolved on successful creation and rejected on error
  */
@@ -131,14 +151,25 @@ function createDbsIfNotExist(dbNames) {
   if (!dbNames) {
     throw(new Error('No database names specified'));
   }
-  if (dbNames instanceof String) {
-    return createDbIfNotExists(dbNames);
+
+  if (!(dbNames instanceof Array)) {
+    dbNames = [dbNames];
   }
-  return Promise.all(
-    dbNames.map(function(dbName) {
-      return createDbIfNotExists(dbName);
-    })
-  );
+
+  return new Promise(function(resolve, reject) {
+    dbsExist(dbNames)
+      .then(function(dbsFound) {
+        var dbsNotFound = dbNames.filter(function(dbName) {
+          return dbsFound.indexOf(dbName) < 0;
+        });
+        resolve(Promise.all(
+          dbsNotFound.map(function(dbName) {
+            return createDb(dbName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -155,9 +186,7 @@ function dropDbIfExists(dbName) {
       .then(function(dbFound) {
         return dbFound ? resolve(dropDb(dbName)) : resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -173,14 +202,22 @@ function dropDbsIfExist(dbNames) {
   if (!dbNames) {
     return Promise.resolve();
   }
-  if (dbNames instanceof String) {
-    return dropDbIfExists(dbNames);
+
+  if (!(dbNames instanceof Array)) {
+    dbNames = [dbNames];
   }
-  return Promise.all(
-    dbNames.map(function(dbName) {
-      return dropDbIfExists(dbName);
-    })
-  );
+
+  return new Promise(function(resolve, reject) {
+    dbsExist(dbNames)
+      .then(function(dbsFound) {
+        resolve(Promise.all(
+          dbsFound.map(function(dbName) {
+            return dropDb(dbName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -200,9 +237,7 @@ function resetDb(dbName) {
       .then(function(tableNames) {
         resolve(resetTables(dbName, tableNames));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -224,9 +259,7 @@ function getTableList(dbName) {
         debug('Total tables in database', dbName, tableNames.length);
         resolve(tableNames);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -250,9 +283,42 @@ function tableExists(dbName, tableName) {
         debug('Table', tableName, 'in database', dbName, 'found?', tableFound);
         resolve(tableFound);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
+  });
+}
+
+/*
+ * Checks if tables exist in database.
+ * Takes no callback.
+ *
+ * @method tablesExist
+ * @param {String} dbName Database name
+ * @param {Array} tableNames Table names
+ * @return {Promise} Returns a promise resolved on successful check and rejected on error
+ */
+function tablesExist(dbName, tableNames) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+
+  if (!tableNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    getTableList(dbName)
+      .then(function(tables) {
+        var tablesFound = tableNames.filter(function(tableName) {
+          return tables.indexOf(tableName) > -1;
+        });
+        debug('Tables found in database', dbName, tablesFound.length);
+        resolve(tablesFound);
+      })
+      .catch(reject);
   });
 }
 
@@ -278,9 +344,7 @@ function createTable(dbName, tableName) {
         debug('Table', tableName, 'in database', dbName, 'created?', result.tables_created === 1);
         resolve(result.tables_created === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -306,9 +370,7 @@ function dropTable(dbName, tableName) {
         debug('Table', tableName, 'in database', dbName, 'dropped?', result.tables_dropped === 1);
         resolve(result.tables_dropped === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -333,9 +395,7 @@ function createTableIfNotExists(dbName, tableName) {
       .then(function(tableFound) {
         return tableFound ? resolve(tableFound) : resolve(createTable(dbName, tableName));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -355,14 +415,25 @@ function createTablesIfNotExist(dbName, tableNames) {
   if (!tableNames) {
     throw(new Error('Table names not specified'));
   }
-  if (tableNames instanceof String) {
-    return createTableIfNotExists(dbName, tableNames);
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
   }
-  return Promise.all(
-    tableNames.map(function(tableName) {
-      return createTableIfNotExists(dbName, tableName);
-    })
-  );
+
+  return new Promise(function(resolve, reject) {
+    tablesExist(dbName, tableNames)
+      .then(function(tablesFound) {
+        var tablesNotFound = tableNames.filter(function(tableName) {
+          return tablesFound.indexOf(tableName) < 0;
+        });
+        resolve(Promise.all(
+          tablesNotFound.map(function(tableName) {
+            return createTable(dbName, tableName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -383,9 +454,7 @@ function dropTableIfExists(dbName, tableName) {
       .then(function(tableFound) {
         return tableFound ? resolve(dropTable(dbName, tableName)) : resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -405,14 +474,22 @@ function dropTablesIfExist(dbName, tableNames) {
   if (!tableNames) {
     return Promise.resolve();
   }
-  if (tableNames instanceof String) {
-    return dropTableIfExists(dbName, tableNames);
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
   }
-  return Promise.all(
-    tableNames.map(function(tableName) {
-      return dropTableIfExists(dbName, tableName);
-    })
-  );
+
+  return new Promise(function(resolve, reject) {
+    tablesExist(dbName, tableNames)
+      .then(function(tablesFound) {
+        resolve(Promise.all(
+          tablesFound.map(function(tableName) {
+            return dropTable(dbName, tableName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -437,9 +514,7 @@ function resetTable(dbName, tableName) {
         debug('Reset table', tableName);
         resolve(result);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -459,9 +534,11 @@ function resetTables(dbName, tableNames) {
   if (!tableNames) {
     throw(new Error('Table names not specified'));
   }
-  if (tableNames instanceof String) {
-    return resetTable(dbName, tableNames);
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
   }
+
   return Promise.all(
     tableNames.map(function(tableName) {
       return resetTable(dbName, tableName);
@@ -486,14 +563,19 @@ function getIndexList(dbName, tableName) {
     throw(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
-    r.db(dbName).table(tableName).indexList().run()
+    tableExists(dbName, tableName)
+      .then(function(result) {
+        if (result) {
+          return r.db(dbName).table(tableName).indexList().run();
+        } else {
+          return Promise.resolve([]);
+        }
+      })
       .then(function(indexNames) {
         debug('Total indexes on table', tableName, 'in database', dbName, indexNames.length);
         resolve(indexNames);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -521,9 +603,35 @@ function indexExists(dbName, tableName, indexName) {
           debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'found?', indexFound);
           resolve(indexFound);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
+  });
+}
+
+function indexesExist(dbName, tableName, indexNames) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(indexNames instanceof Array)) {
+    indexNames = [indexNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    getIndexList(dbName, tableName)
+      .then(function(indexes) {
+          var indexesFound = indexNames.filter(function(indexName) {
+            return indexes.indexOf(indexName) > -1;
+          });
+          debug('Indexes found in table', tableName, 'in database', dbName, indexesFound.length);
+          resolve(indexesFound);
+      })
+      .catch(reject);
   });
 }
 
@@ -548,6 +656,7 @@ function createIndex(dbName, tableName, indexName, columns) {
   if (!indexName) {
     throw(new Error('Index name not specified'));
   }
+
   var indexCreateQuery = r.db(dbName).table(tableName);
   if (columns) {
     columns = columns.map(function(column) {
@@ -570,11 +679,9 @@ function createIndex(dbName, tableName, indexName, columns) {
         });
         var indexReady = index.length > 0 && index[0].ready;
         debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'ready?', indexReady);
-        resolve(result.ready);
+        resolve(indexReady);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -604,9 +711,7 @@ function dropIndex(dbName, tableName, indexName) {
         debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'dropped?', result.dropped === 1);
         resolve(result.dropped === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -636,9 +741,7 @@ function createIndexIfNotExists(dbName, tableName, indexName, columns) {
       .then(function(indexFound) {
         return indexFound ? resolve(indexFound) : resolve(createIndex(dbName, tableName, indexName, columns));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -662,9 +765,25 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
   if (!indexData) {
     throw(new Error('Index data not specified'));
   }
-  return Promise.map(indexData, function(indexData) {
-    return createIndexIfNotExists(dbName, tableName, indexData.name, indexData.columns);
-  }, { concurrency: 1 }).all();
+  if (!(indexData instanceof Array)) {
+    throw(new Error('Index data should be an array'));
+  }
+
+  var indexNames = indexData.map(function(index) { return index.name; });
+
+  return new Promise(function(resolve, reject) {
+    indexesExist(dbName, tableName, indexNames)
+      .then(function(indexesFound) {
+        var indexesToCreate = indexData.filter(function(index) {
+          return indexesFound.indexOf(index.name) < 0;
+        });
+        resolve(Promise.map(indexesToCreate, function(indexData) {
+            return createIndex(dbName, tableName, indexData.name, indexData.columns);
+          }, { concurrency: 1 })
+        );
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -685,16 +804,14 @@ function dropIndexIfExists(dbName, tableName, indexName) {
     throw(new Error('Table name not specified'));
   }
   if (!indexName) {
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
   return new Promise(function(resolve, reject) {
     indexExists(dbName, tableName, indexName)
       .then(function(indexFound) {
         return indexFound ? resolve(dropIndex(dbName, tableName, indexName)) : resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -716,16 +833,23 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
     throw(new Error('Table name not specified'));
   }
   if (!indexNames) {
-    return Promise.resolve();
+    return Promise.resolve([]);
   }
-  if (indexNames instanceof String) {
-    return dropIndexIfExists(dbName, tableName, indexNames);
+
+  if (!(indexNames instanceof Array)) {
+    indexNames = [indexNames];
   }
-  return Promise.all(
-    indexNames.map(function(indexName) {
-      return dropIndexIfExists(dbName, tableName, indexName);
-    })
-  );
+
+  return new Promise(function(resolve, reject) {
+    indexesExist(dbName, tableName, indexNames)
+      .then(function(indexesFound) {
+        resolve(Promise.map(indexesFound, function(indexName) {
+            return dropIndex(dbName, tableName, indexName);
+          }, { concurrency: 1 })
+        );
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -790,9 +914,7 @@ function migrate(dbName, tableData, indexData) {
       .then(function() {
         resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -856,9 +978,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -884,9 +1004,7 @@ function model(r, dbName, tableName) {
         .then(function(results) {
           resolve(results);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -908,9 +1026,7 @@ function model(r, dbName, tableName) {
         .then(function(results) {
           resolve(results);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -944,9 +1060,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -974,9 +1088,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -1006,9 +1118,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -1030,9 +1140,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -1059,9 +1167,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -1079,9 +1185,7 @@ function model(r, dbName, tableName) {
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -1104,6 +1208,7 @@ function init(dbConfig) {
     r: r,
     getDbList: getDbList,
     dbExists: dbExists,
+    dbsExist: dbsExist,
     createDb: createDb,
     dropDb: dropDb,
     createDbIfNotExists: createDbIfNotExists,
@@ -1112,6 +1217,7 @@ function init(dbConfig) {
     dropDbsIfExist: dropDbsIfExist,
     getTableList: getTableList,
     tableExists: tableExists,
+    tablesExist: tablesExist,
     createTable: createTable,
     dropTable: dropTable,
     createTableIfNotExists: createTableIfNotExists,
@@ -1120,6 +1226,7 @@ function init(dbConfig) {
     dropTablesIfExist: dropTablesIfExist,
     getIndexList: getIndexList,
     indexExists: indexExists,
+    indexesExist: indexesExist,
     createIndex: createIndex,
     dropIndex: dropIndex,
     createIndexIfNotExists: createIndexIfNotExists,
