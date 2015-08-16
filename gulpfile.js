@@ -6,7 +6,7 @@ var mocha = require('gulp-mocha');
 var cached = require('gulp-cached');
 
 var paths = {
-  jshint: ['*.js'],
+  jshint: ['*.js', 'test/*.js'],
   mocha: ['test/**/*.js']
 };
 

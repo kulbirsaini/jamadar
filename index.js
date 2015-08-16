@@ -877,7 +877,7 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
  *            { name: 'username' },
  *            { name: 'email' }
  *          ]
-*          }
+ *        }
  * @return {Promise} Returns a promise resolved on and rejected on error
  */
 function migrate(dbName, tableData, indexData) {
@@ -890,6 +890,7 @@ function migrate(dbName, tableData, indexData) {
   if (!indexData) {
     throw(new Error('Index data not specified'));
   }
+
   var tableNames = Object.keys(tableData).map(function(tableId) { return tableData[tableId]; });
   return new Promise(function(resolve, reject) {
     createDbIfNotExists(dbName)
@@ -918,7 +919,17 @@ function migrate(dbName, tableData, indexData) {
   });
 }
 
-function model(r, dbName, tableName) {
+/**
+ * Returns a database Model on the lines on ActiveRecord in Rails.
+ * It exposes most internal ReQL functions.
+ *
+ * @method Model
+ * @param {Object} r Rethinkdbdash instance
+ * @param {String} dbName The database name
+ * @param {String} tableName The table name
+ * @return {Object} Return an object exposing wrappers around ReQL functions.
+ */
+function Model(r, dbName, tableName) {
   if (!r) {
     throw(new Error('Rethinkdb instance required for generating queries'));
   }
@@ -928,6 +939,7 @@ function model(r, dbName, tableName) {
   if (!tableName) {
     throw(new Error('Table name not specified'));
   }
+
   /**
    * Returns a query with table selected.
    *
@@ -961,7 +973,7 @@ function model(r, dbName, tableName) {
    * @return {Query} A rethinkdb query
    */
   function getAll(fields, indexName) {
-    return table().getAll(fields, { index: indexName });
+    return table().getAll(r.args(fields), { index: indexName });
   }
 
   /**
@@ -973,7 +985,11 @@ function model(r, dbName, tableName) {
    * @return {Promise} A promise resolved on successful find and rejected on error
    */
   function find(id) {
-    return Promise.new(function(resolve, reject) {
+    if (!id) {
+      return Promise.resolve(null);
+    }
+
+    return new Promise(function(resolve, reject) {
       get(id).run()
         .then(function(result) {
           resolve(result);
@@ -992,15 +1008,34 @@ function model(r, dbName, tableName) {
    * @param {String} indexName A secondary index corresponding to the field or a compound index in case of multiple fields.
    * @return {Promise} A promise resolved on successful find and rejected on error
    */
-  function findAll(fields, indexName) {
-    if (!fields) {
+  function findAll() {
+    var args = Array.prototype.slice.call(arguments);
+    var fields = [];
+    var indexName = null;
+    if (args.length === 1) {
+      fields = args;
+    } else {
+      fields = args.slice(0, args.length - 1);
+      indexName = args.slice(args.length - 1)[0];
+    }
+
+    if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
       throw(new Error('Search fields not specified'));
     }
     if (!indexName) {
       throw(new Error('Index name not specified'));
     }
-    return Promise.new(function(resolve, reject) {
-      getAll(fields, { index: indexName }).run()
+
+    if (fields instanceof Array) {
+      fields.forEach(function(field) {
+        if (field !== 0 && field !== '' && !field) {
+          throw(new Error('Search field must be either a number, string, bool, pseudotype or array'));
+        }
+      });
+    }
+
+    return new Promise(function(resolve, reject) {
+      getAll(fields, indexName).run()
         .then(function(results) {
           resolve(results);
         })
@@ -1021,7 +1056,8 @@ function model(r, dbName, tableName) {
     if (!predicate) {
       throw(new Error('Predicate not specified'));
     }
-    return Promise.new(function(resolve, reject) {
+
+    return new Promise(function(resolve, reject) {
       table().filter(predicate, options || {}).run()
         .then(function(results) {
           resolve(results);
@@ -1044,6 +1080,9 @@ function model(r, dbName, tableName) {
     if (!objects) {
       throw(new Error('Documents not specified'));
     }
+
+    //FIXME If we ever have a sane Object.clone implementation we should
+    //clone objects instead of extending the passed one.
     var now = Date.now();
     if (objects instanceof Array) {
       objects = objects.map(function(object) {
@@ -1055,7 +1094,8 @@ function model(r, dbName, tableName) {
       objects.created_at = objects.created_at || now;
       objects.updated_at = objects.updated_at || now;
     }
-    return Promise.new(function(resolve, reject) {
+
+    return new Promise(function(resolve, reject) {
       table().insert(objects, options || {}).run()
         .then(function(result) {
           resolve(result);
@@ -1082,39 +1122,12 @@ function model(r, dbName, tableName) {
     if (!updates) {
       throw(new Error('Document updates not specified'));
     }
-    updates.updated_at = updates.updated_at || Date.now();
-    return Promise.new(function(resolve, reject) {
-      get(id).update(updates, options || {}).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
 
-  /**
-   * Replaces an object identified by given id.
-   * Automatically inserts created_at and updated_at timestamps if not provided in the replacement object.
-   * Ref: http://rethinkdb.com/api/javascript/replace/
-   *
-   * @method replace
-   * @param {String|Integer} id The id of object to replace
-   * @param {Object} replacementObject An object replacing the document
-   * @param {Object} options Optional arguments valid for replace query
-   * @return {Promise} Returns a promise resolved on successful replacement and rejected on error
-   */
-  function replace(id, replacementObject, options) {
-    if (!id) {
-      throw(new Error('Document id not specified'));
-    }
-    if (!replacementObject) {
-      throw(new Error('Replacement document not specified'));
-    }
-    var now = Date.now();
-    replacementObject.created_at = replacementObject.created_at || now;
-    replacementObject.updated_at = replacementObject.updated_at || now;
-    return Promise.new(function(resolve, reject) {
-      get(id).replace(replacementObject, options || {}).run()
+    //FIXME If we ever have a sane Object.clone implementation we should
+    //clone updates instead of extending the passed one.
+    updates.updated_at = updates.updated_at || Date.now();
+    return new Promise(function(resolve, reject) {
+      get(id).update(updates, options || {}).run()
         .then(function(result) {
           resolve(result);
         })
@@ -1135,7 +1148,8 @@ function model(r, dbName, tableName) {
     if (!id) {
       throw(new Error('Document id not specified'));
     }
-    return Promise.new(function(resolve, reject) {
+
+    return new Promise(function(resolve, reject) {
       get(id).delete(options || {}).run()
         .then(function(result) {
           resolve(result);
@@ -1155,15 +1169,41 @@ function model(r, dbName, tableName) {
    * @param {Object} options Optional arguments valid for delete query
    * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
    */
-  function destroyAll(fields, indexName, options) {
-    if (!fields) {
+  function destroyAll() {
+    var args = Array.prototype.slice.call(arguments);
+    var fields = [];
+    var indexName = null;
+    var lastArg = args[args.length - 1];
+    var options = {};
+
+    if (args.length < 2) {
+      fields = args;
+    } else if (lastArg !== null && typeof(lastArg) === 'object') {
+      fields = args.slice(0, args.length - 2);
+      indexName = args[args.length - 2];
+      options = args[args.length - 1];
+    } else {
+      fields = args.slice(0, args.length - 1);
+      indexName = args.slice(args.length - 1)[0];
+    }
+
+    if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
       throw(new Error('Search fields not specified'));
     }
     if (!indexName) {
       throw(new Error('Index name not specified'));
     }
-    return Promise.new(function(resolve, reject) {
-      getAll(fields, { index: indexName }).delete(options || {}).run()
+
+    if (fields instanceof Array) {
+      fields.forEach(function(field) {
+        if (field !== 0 && field !== '' && !field) {
+          throw(new Error('Search field must be either a number, string, bool, pseudotype or array'));
+        }
+      });
+    }
+
+    return new Promise(function(resolve, reject) {
+      getAll(fields, indexName).delete(options || {}).run()
         .then(function(result) {
           resolve(result);
         })
@@ -1180,7 +1220,7 @@ function model(r, dbName, tableName) {
    * @return {Promise} Returns a promise resolved on successful sync and rejected on error
    */
   function sync() {
-    return Promise.new(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
       table().sync().run()
         .then(function(result) {
           resolve(result);
@@ -1195,7 +1235,6 @@ function model(r, dbName, tableName) {
     filter: filter,
     create: create,
     update: update,
-    replace: replace,
     destroy: destroy,
     destroyAll: destroyAll,
     sync: sync
@@ -1237,7 +1276,7 @@ function init(dbConfig) {
     resetTables: resetTables,
     resetDb: resetDb,
     migrate: migrate,
-    model: model
+    Model: Model
   };
 }
 

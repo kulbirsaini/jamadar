@@ -1,3 +1,4 @@
+/*jshint expr: true*/
 'use strict';
 
 var chai = require('chai');
@@ -28,7 +29,7 @@ function dropDb(dbName, done) {
  * WARNING: The order of tests in this file is so important that you would want to shoot
  * yourself in the head resolving the errors that occur once you alter the order.
  */
-//TODO FIXME write tests for functions using instanceof method.
+//TODO FIXME write tests for functions which use instanceof method.
 describe('Database Layer', function() {
   var tableNames = Object.keys(config.app.tables).map(function(tableId) { return config.app.tables[tableId]; });
 
@@ -151,7 +152,7 @@ describe('Database Layer', function() {
 
     it('should not throw an error', function() {
       db.createDbIfNotExists(config.rethinkdb.db).should.not.be.rejectedWith(Error);
-    })
+    });
   });
 
   describe('dropDbIfExists', function() {
@@ -192,7 +193,7 @@ describe('Database Layer', function() {
     it('should not throw an Error if one or more of databases already exist', function() {
       db.createDbsIfNotExist(dbs).should.not.be.rejectedWith(Error);
     });
-  })
+  });
 
   describe('dropDbsIfExist', function() {
     var dbs = [config.rethinkdb.db, config.rethinkdb.db + '_1' + config.rethinkdb.db + '_2'];
@@ -213,18 +214,6 @@ describe('Database Layer', function() {
     it('should not throw an Error if one or more of databases already exist', function() {
       db.dropDbsIfExist(dbs).should.not.be.rejectedWith(Error);
     });
-  });
-
-  describe('resetDb', function() {
-    it('should be implemented');
-  })
-
-  describe('resetTable', function() {
-    it('should be implemented');
-  });
-
-  describe('resetTables', function() {
-    it('should be implemented');
   });
 
   describe('getTableList', function() {
@@ -305,17 +294,17 @@ describe('Database Layer', function() {
 
     it('should throw an error when database name is not specified', function() {
       expect(db.tableExists.bind(db)).to.throw(Error);
-    })
+    });
   });
 
   describe('createTable', function() {
     it('should throw an error when database name is not specified', function() {
       expect(db.createTable.bind(db)).to.throw(Error);
-    })
+    });
 
     it('should throw an error when table name is not specified', function() {
       expect(db.createTable.bind(db, config.rethinkdb.db)).to.throw(Error);
-    })
+    });
 
     it('should create a table', function(done) {
       db.createTable(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf')
@@ -334,11 +323,11 @@ describe('Database Layer', function() {
   describe('dropTable', function() {
     it('should throw an error when database name is not specified', function() {
       expect(db.dropTable.bind(db)).to.throw(Error);
-    })
+    });
 
     it('should throw an error when table name is not specified', function() {
       expect(db.dropTable.bind(db, config.rethinkdb.db)).to.throw(Error);
-    })
+    });
 
     it('should drop a table', function(done) {
       db.dropTable(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf')
@@ -357,11 +346,11 @@ describe('Database Layer', function() {
   describe('dropTableIfExists', function() {
     it('should throw an error when database name is not specified', function() {
       expect(db.dropTableIfExists.bind(db)).to.throw(Error);
-    })
+    });
 
     it('should throw an error when table name is not specified', function() {
       expect(db.dropTableIfExists.bind(db, config.rethinkdb.db)).to.not.throw(Error);
-    })
+    });
 
     it('should drop table if exists', function(done) {
       db.dropTableIfExists(config.rethinkdb.db, tableNames[0])
@@ -385,11 +374,11 @@ describe('Database Layer', function() {
   describe('dropTablesIfExist', function() {
     it('should throw an error when database name is not specified', function() {
       expect(db.dropTablesIfExist.bind(db)).to.throw(Error);
-    })
+    });
 
     it('should not throw an error when table name is not specified', function() {
       expect(db.dropTablesIfExist.bind(db, config.rethinkdb.db)).to.not.throw(Error);
-    })
+    });
 
     it('should drop tables if exist', function(done) {
       db.dropTablesIfExist(config.rethinkdb.db, tableNames)
@@ -415,11 +404,11 @@ describe('Database Layer', function() {
   describe('createTableIfNotExists', function() {
     it('should throw an error when database name is not specified', function() {
       expect(db.createTableIfNotExists.bind(db)).to.throw(Error);
-    })
+    });
 
     it('should throw an error when table name is not specified', function() {
       expect(db.createTableIfNotExists.bind(db, config.rethinkdb.db)).to.throw(Error);
-    })
+    });
 
     it('should create a table if not exists', function(done) {
       db.createTableIfNotExists(config.rethinkdb.db, tableNames[0])
@@ -451,11 +440,11 @@ describe('Database Layer', function() {
   describe('createTablesIfNotExist', function() {
     it('should throw an error when database name is not specified', function() {
       expect(db.createTablesIfNotExist.bind(db)).to.throw(Error);
-    })
+    });
 
     it('should throw an error when table name is not specified', function() {
       expect(db.createTablesIfNotExist.bind(db, config.rethinkdb.db)).to.throw(Error);
-    })
+    });
 
     it('should create tables if not exist', function(done) {
       db.createTablesIfNotExist(config.rethinkdb.db, tableNames)
@@ -935,53 +924,523 @@ describe('Database Layer', function() {
     });
   });
 
-  describe('model', function() {
-    describe('table', function() {
-      it('should be implemented');
+  describe('Model', function() {
+    this.timeout(10000);
+    var UrlModel = db.Model(db.r, config.rethinkdb.db, tableNames[0]);
+    var objects = [
+      { id: 1, url: 'http://saini.co.in/', post_id: 121, created_at: Date.now(), updated_at: Date.now() },
+      { id: 2, url: 'http://gofedora.com/', post_id: 4213, created_at: null, updated_at: Date.now() },
+      { id: 'acd', url: 'http://example.com/example.html', post_id: 1, created_at: Date.now(), updated_at: Date.now() },
+      { id: 'AFED', url: '', post_id: 2, created_at: Date.now(), updated_at: Date.now() },
+      { id: 'AF39Fdcew_asdf-s29', url: null, post_id: 1, created_at: Date.now(), updated_at: null },
+      { id: null, url: 'http://4bo.net', post_id: null },
+      { url: 'http://google.com/', created_at: null, updated_at: null },
+      { id: 'fear', url: 'http://google.co/', post_id: 123, created_at: null, updated_at: null },
+      { id: 'bounty-hunder', url: 'http://google.io/', post_id: 200, created_at: null, updated_at: null },
+      { id: 'bonty-hunder2', url: 'http://goog.io/', created_at: null, updated_at: null },
+      { id: '_bonty-hunder2', url: 'http://goog.io/', created_at: null, updated_at: null }
+    ];
+
+    before(function(done) {
+      db.migrate(config.rethinkdb.db, config.app.tables, config.app.indexes)
+        .then(function(result) {
+          done();
+        })
+        .catch(done);
     });
 
-    describe('get', function() {
-      it('should be implemented');
+    before(function(done) {
+      UrlModel.create(objects)
+        .then(function(result) {
+          done();
+        })
+        .catch(done);
     });
 
-    describe('getAll', function() {
-      it('should be implemented');
+    it('should throw an error when rethinkdbdash instance is not specified', function() {
+      expect(db.Model.bind(db)).to.throw(Error);
+    });
+
+    it('should throw an error when database name is not specified', function() {
+      expect(db.Model.bind(db, db.r)).to.throw(Error);
+    });
+
+    it('should throw an error when table name is not specified', function() {
+      expect(db.Model.bind(db, db.r, config.rethinkdb.db)).to.throw(Error);
     });
 
     describe('find', function() {
-      it('should be implemented');
+      it('should not throw an error when id is not specified', function(done) {
+        expect(UrlModel.find.bind(UrlModel)).to.not.throw(Error);
+        UrlModel.find()
+          .then(function(result) {
+            should.not.exist(result);
+            expect(result).to.be.null;
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should find a document with given id', function(done) {
+        var object = objects[0];
+        UrlModel.find(object.id)
+          .then(function(result) {
+            result.should.be.Object;
+            result.should.be.eql(object);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should return null for a document that does not exist', function(done) {
+        UrlModel.find('asdfasdfasdfasdfasdfasdf')
+          .then(function(result) {
+            should.not.exist(result);
+            expect(result).to.be.null;
+            done();
+          })
+          .catch(done);
+      });
     });
 
     describe('findAll', function() {
-      it('should be implemented');
+      it('should throw an error when fields are not specified', function() {
+        expect(UrlModel.findAll.bind(UrlModel)).to.throw(Error);
+      });
+
+      it('should throw an error when index is not specified', function() {
+        expect(UrlModel.findAll.bind(UrlModel, 'url')).to.throw(Error);
+      });
+
+      it('should throw an error when search field is null', function() {
+        expect(UrlModel.findAll.bind(UrlModel, null, 'url')).to.throw(Error);
+        expect(UrlModel.findAll.bind(UrlModel, null, 'id')).to.throw(Error);
+        expect(UrlModel.findAll.bind(UrlModel, null, 'post_id')).to.throw(Error);
+      });
+
+      it('should be able to fetch document with primary key', function(done) {
+        var object = objects[0];
+        UrlModel.findAll(object.id, 'id')
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(1);
+            var result = results[0];
+            result.should.be.eql(object);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should fetch documents with multiple primary keys', function(done) {
+        UrlModel.findAll(objects[0].id, objects[1].id, 'id')
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(2);
+            results.should.contain(objects[0]);
+            results.should.contain(objects[1]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch document with a single secondary index', function(done) {
+        var object = objects[1];
+        UrlModel.findAll(object.url, 'url')
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(1);
+            var result = results[0];
+            result.should.be.eql(object);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch documents with multiple values of a secondary index', function(done) {
+        UrlModel.findAll(objects[2].url, objects[3].url, 'url')
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(2);
+            results.should.contain(objects[2]);
+            results.should.contain(objects[3]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch documents with compound index', function(done) {
+        var object = objects[2];
+        UrlModel.findAll([object.url, object.post_id], 'url_and_post_id')
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(1);
+            var result = results[0];
+            result.should.be.eql(object);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch documents with multiple values of a compound index', function(done) {
+        UrlModel.findAll([objects[1].url, objects[1].post_id], [objects[3].url, objects[3].post_id], 'url_and_post_id')
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(2);
+            results.should.contain(objects[1]);
+            results.should.contain(objects[3]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should throw an error with compound index containing null field', function() {
+        UrlModel.findAll(['http://saini.co.in/', null], 'url_and_post_id').should.be.rejectedWith(Error);
+        UrlModel.findAll([null, 1], 'url_and_post_id').should.be.rejectedWith(Error);
+      });
     });
 
     describe('filter', function() {
-      it('should be implemented');
-    });
+      it('should throw an error when predicate is not specified', function() {
+        expect(UrlModel.filter.bind(UrlModel)).to.throw(Error);
+      });
 
-    describe('create', function() {
-      it('should be implemented');
+      it('should fetch documents when a predicate is specified as ReQL', function(done) {
+        UrlModel.filter(db.r.row('post_id').gt(100))
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(4);
+            results.should.contain(objects[0]);
+            results.should.contain(objects[1]);
+            results.should.contain(objects[7]);
+            results.should.contain(objects[8]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should fetch documents when a predicate is specified as object', function(done) {
+        UrlModel.filter({ post_id: 1 })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(2);
+            results.should.contain(objects[2]);
+            results.should.contain(objects[4]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should fetch documents when a predicate is specified as function', function(done) {
+        UrlModel.filter(function(url) { return url('post_id').eq(2); })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(1);
+            results.should.contain(objects[3]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should fetch documents when a predicate is specified as ReQL', function(done) {
+        UrlModel.filter(db.r.row('post_id').gt(100).and(db.r.row('post_id').lt(150)))
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(2);
+            results.should.contain(objects[0]);
+            results.should.contain(objects[7]);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should fetch documents when a predicate is specified as ReQL', function(done) {
+        UrlModel.filter(db.r.row('post_id').lt(100))
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(3);
+            results.should.contain(objects[2]);
+            results.should.contain(objects[3]);
+            results.should.contain(objects[4]);
+            done();
+          })
+          .catch(done);
+      });
+
+      //It's a valid query but can't fetch nothing
+      it('should fetch documents when a predicate is specified as ReQL', function(done) {
+        UrlModel.filter(db.r.row('post_id').eq(null))
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(0);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should fetch documents when a predicate is specified as object', function(done) {
+        UrlModel.filter({ post_id: null })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(0);
+            done();
+          })
+          .catch(done);
+      });
     });
 
     describe('update', function() {
-      it('should be implemented');
-    });
+      it('should throw an error if id is not specified', function() {
+        expect(UrlModel.update.bind(UrlModel)).to.throw(Error);
+      });
 
-    describe('replace', function() {
-      it('should be implemented');
+      it('should throw an error if updates object is not specified', function() {
+        expect(UrlModel.update.bind(UrlModel, 1)).to.throw(Error);
+      });
+
+      it('should update a document using an object', function(done) {
+        var object = objects[0];
+        var updated_at = object.updated_at;
+        UrlModel.update(object.id, { post_id: 1201 })
+          .then(function(result) {
+            result.replaced.should.be.Number;
+            result.replaced.should.be.equal(1);
+            return UrlModel.find(object.id);
+          })
+          .then(function(result) {
+            result.post_id.should.not.be.equal(object.post_id);
+            result.post_id.should.be.equal(1201);
+            result.updated_at.should.be.gt(updated_at);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should update a document using a ReQL expression', function(done) {
+        var object = objects[1];
+        var updated_at = object.updated_at;
+        UrlModel.update(object.id, { post_id: db.r.row('post_id').add(1) })
+          .then(function(result) {
+            result.replaced.should.be.Number;
+            result.replaced.should.be.equal(1);
+            return UrlModel.find(object.id);
+          })
+          .then(function(result) {
+            result.post_id.should.not.be.equal(object.post_id);
+            result.post_id.should.be.equal(object.post_id + 1);
+            result.updated_at.should.be.gt(updated_at);
+            done();
+          })
+          .catch(done);
+      });
     });
 
     describe('destroy', function() {
-      it('should be implemented');
+      it('should throw an error if id is not specified', function() {
+        expect(UrlModel.destroy.bind(UrlModel)).to.throw(Error);
+      });
+
+      it('should destroy a document with an id', function(done) {
+        UrlModel.destroy(objects[9].id)
+          .then(function(result) {
+            result.deleted.should.be.Number;
+            result.deleted.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should not destroy a document with an id that is not in that database', function(done) {
+        UrlModel.destroy('asdfasdfasdfasdfasdfasdf')
+          .then(function(result) {
+            result.deleted.should.be.Number;
+            result.deleted.should.be.equal(0);
+            result.skipped.should.be.Number;
+            result.skipped.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
     });
 
     describe('destroyAll', function() {
-      it('should be implemented');
+      before(function(done) {
+        db.resetTable(config.rethinkdb.db, tableNames[0])
+          .then(function(result) {
+            return UrlModel.create(objects);
+          })
+          .then(function(result) {
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should throw an error when fields are not specified', function() {
+        expect(UrlModel.destroyAll.bind(UrlModel)).to.throw(Error);
+      });
+
+      it('should throw an error when index is not specified', function() {
+        expect(UrlModel.destroyAll.bind(UrlModel, 'url')).to.throw(Error);
+      });
+
+      it('should throw an error when search field is null', function() {
+        expect(UrlModel.destroyAll.bind(UrlModel, null, 'url')).to.throw(Error);
+        expect(UrlModel.destroyAll.bind(UrlModel, null, 'id')).to.throw(Error);
+        expect(UrlModel.destroyAll.bind(UrlModel, null, 'post_id')).to.throw(Error);
+      });
+
+      it('should be able to destroy document with primary key', function(done) {
+        var object = objects[9];
+        UrlModel.destroyAll(object.id, 'id')
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should destroy documents with multiple primary keys', function(done) {
+        UrlModel.destroyAll(objects[8].id, objects[7].id, 'id')
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(2);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch document with a single secondary index', function(done) {
+        var object = objects[6];
+        UrlModel.destroyAll(object.url, 'url')
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch documents with multiple values of a secondary index', function(done) {
+        UrlModel.destroyAll(objects[4].post_id, objects[3].post_id, 'post_id')
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(3);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch documents with compound index', function(done) {
+        var object = objects[2];
+        UrlModel.destroyAll([object.url, object.post_id], 'url_and_post_id')
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(0);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be able to fetch documents with multiple values of a compound index', function(done) {
+        UrlModel.destroyAll([objects[1].url, objects[1].post_id], [objects[0].url, objects[0].post_id], 'url_and_post_id')
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(2);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should destroy document with rethinkdb options', function(done) {
+        UrlModel.destroyAll(objects[10].url, 'url', { durability: 'hard' })
+          .then(function(results) {
+            results.deleted.should.be.Number;
+            results.deleted.should.be.equal(1);
+
+            done();
+          })
+          .catch(done);
+      });
+
+    });
+
+    describe('create', function() {
+      before(function(done) {
+        db.resetTable(config.rethinkdb.db, tableNames[0])
+          .then(function(result) {
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should throw an error if objects are not specified', function() {
+        expect(UrlModel.create.bind(UrlModel)).to.throw(Error);
+      });
+
+      it('should not insert an object with id set as null', function(done) {
+        var object = objects[5];
+        UrlModel.create(object)
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(0);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should insert when a single object is passed', function(done) {
+        UrlModel.create(objects[0])
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should insert an arbitrary number of object passed', function(done) {
+        var newObjects = [objects[1], objects[2], objects[9]];
+        UrlModel.create(newObjects)
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(newObjects.length);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should not insert an object whose id already exists in table', function(done) {
+        UrlModel.create(objects[0])
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(0);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should insert documents whose ids are not already present in the table', function(done) {
+        var newObjects = [objects[4], objects[2], objects[9], objects[5]];
+        UrlModel.create(newObjects)
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
     });
 
     describe('sync', function() {
-      it('should be implemented');
+      it('should sync table', function(done) {
+        UrlModel.sync()
+          .then(function(result) {
+            result.synced.should.be.Number;
+            result.synced.should.be.equal(1);
+            done();
+          })
+          .catch(done);
+      });
     });
   });
 });
