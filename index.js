@@ -1,6 +1,6 @@
 'use strict';
 
-var debug = require('debug')('lolstack:db/base');
+var debug = require('debug')('dblayer:index');
 var Promise = require('bluebird');
 var rethinkdbdash = require('rethinkdbdash');
 
