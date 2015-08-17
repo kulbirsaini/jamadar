@@ -13,11 +13,7 @@ var config = {
   app: {
     tables: {
       url: 'urls',
-      user: 'users',
-      network: 'networks',
-      schedule: 'schedules',
-      post: 'posts',
-      picture: 'pictures'
+      user: 'users'
     },
     indexes: {
       url: [
@@ -30,21 +26,6 @@ var config = {
       user: [
         { name: 'username' },
         { name: 'email' }
-      ],
-      network: [
-        { name: 'name' }
-      ],
-      schedule: [
-        { name: 'nickname' },
-        { name: 'user_id' }
-      ],
-      post: [
-        { name: 'user_id' },
-        { name: 'network_id' },
-        { name: 'schedule_id' }
-      ],
-      picture: [
-        { name: 'user_id' }
       ]
     },
   }

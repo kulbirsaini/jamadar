@@ -28,7 +28,7 @@ gulp.task('jshint', ['dev-env'], function() {
 gulp.task('mocha', ['test-env'], function() {
   return gulp.src(paths.mocha)
     .pipe(cached('spec-files'))
-    .pipe(mocha({ reporter: 'nyan' }));
+    .pipe(mocha({ reporter: 'spec' }));
 });
 
 gulp.task('watch', function() {
