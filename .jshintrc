@@ -1,5 +1,7 @@
 {
   "node": true,
   "unused": "vars",
-  "undef": true
+  "undef": true,
+  "mocha": true,
+  "maxerr": 100
 }

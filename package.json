@@ -5,7 +5,10 @@
   "main": "index.js",
   "private": true,
   "homepage": "https://bitbucket.org/lolstack/database-layer#readme",
-  "scripts": {},
+  "scripts": {
+    "pretest": "npm install",
+    "test": "NODE_ENV=test mocha $(find test -name '*.js')"
+  },
   "repository": {
     "type": "git",
     "url": "git+ssh://git@bitbucket.org/lolstack/database-layer.git"

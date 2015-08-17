@@ -1,6 +1,6 @@
 'use strict';
 
-var debug = require('debug')('lolstack:db/base');
+var debug = require('debug')('dblayer:index');
 var Promise = require('bluebird');
 var rethinkdbdash = require('rethinkdbdash');
 
@@ -20,9 +20,7 @@ function getDbList() {
         debug('Total databases', databaseNames.length);
         resolve(databaseNames);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -42,9 +40,37 @@ function dbExists(dbName) {
         debug('Database', dbName, 'found?', dbFound);
         resolve(dbFound);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
+  });
+}
+
+/*
+ * Checks if databases exist and returns and array of dbs found.
+ * Takes no callback.
+ *
+ * @method dbsExist
+ * @param {Array} dbNames The names of the databases to check
+ * @return {Promise} Returns a promise resolved on successful calcuation and rejected on error
+ */
+function dbsExist(dbNames) {
+  if (!dbNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(dbNames instanceof Array)) {
+    dbNames = [dbNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    getDbList()
+      .then(function(databaseNames) {
+        var dbsFound = dbNames.filter(function(dbName) {
+          return databaseNames.indexOf(dbName) > -1;
+        });
+        debug('Databases found?', dbsFound.length);
+        resolve(dbsFound);
+      })
+      .catch(reject);
   });
 }
 
@@ -57,15 +83,16 @@ function dbExists(dbName) {
  * @return {Promise} Returns a promise resolved on successful creation and rejected on error
  */
 function createDb(dbName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.dbCreate(dbName).run()
       .then(function(result) {
         debug('New database', dbName, 'created?', result.dbs_created === 1);
         resolve(result.dbs_created === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -78,15 +105,16 @@ function createDb(dbName) {
  * @return {Promise} Returns a promise resolved on successful drop and rejected on error
  */
 function dropDb(dbName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.dbDrop(dbName).run()
       .then(function(result) {
         debug('Database', dbName, 'dropped?', result.dbs_dropped === 1);
         resolve(result.dbs_dropped === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -99,14 +127,15 @@ function dropDb(dbName) {
  * @return {Promise} Returns a promise resolved on successful creation/existence and rejected on error
  */
 function createDbIfNotExists(dbName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     dbExists(dbName)
       .then(function(dbFound) {
         return dbFound ? resolve(dbFound) : resolve(createDb(dbName));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -114,19 +143,33 @@ function createDbIfNotExists(dbName) {
  * Checks if databases exist and creates them if they don't
  * Takes no callback.
  *
- * @method createDb
+ * @method createDbsIfNotExist
  * @param {String} dbNames Database name(s)
  * @return {Promise} Returns a promise resolved on successful creation and rejected on error
  */
 function createDbsIfNotExist(dbNames) {
-  if (dbNames instanceof String) {
-    return createDbIfNotExists(dbNames);
+  if (!dbNames) {
+    throw(new Error('No database names specified'));
   }
-  return Promise.all(
-    dbNames.map(function(dbName) {
-      return createDbIfNotExists(dbName);
-    })
-  );
+
+  if (!(dbNames instanceof Array)) {
+    dbNames = [dbNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    dbsExist(dbNames)
+      .then(function(dbsFound) {
+        var dbsNotFound = dbNames.filter(function(dbName) {
+          return dbsFound.indexOf(dbName) < 0;
+        });
+        resolve(Promise.all(
+          dbsNotFound.map(function(dbName) {
+            return createDb(dbName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -143,9 +186,7 @@ function dropDbIfExists(dbName) {
       .then(function(dbFound) {
         return dbFound ? resolve(dropDb(dbName)) : resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -158,14 +199,25 @@ function dropDbIfExists(dbName) {
  * @return {Promise} Returns a promise resolved on successful drop and rejected on error
  */
 function dropDbsIfExist(dbNames) {
-  if (dbNames instanceof String) {
-    return dropDbIfExists(dbNames);
+  if (!dbNames) {
+    return Promise.resolve();
   }
-  return Promise.all(
-    dbNames.map(function(dbName) {
-      return dropDbIfExists(dbName);
-    })
-  );
+
+  if (!(dbNames instanceof Array)) {
+    dbNames = [dbNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    dbsExist(dbNames)
+      .then(function(dbsFound) {
+        resolve(Promise.all(
+          dbsFound.map(function(dbName) {
+            return dropDb(dbName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -177,14 +229,15 @@ function dropDbsIfExist(dbNames) {
  * @return {Promise} Returns a promise resolved on successful reset and rejected on error
  */
 function resetDb(dbName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     getTableList(dbName)
       .then(function(tableNames) {
         resolve(resetTables(dbName, tableNames));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -197,15 +250,16 @@ function resetDb(dbName) {
  * @return {Promise} Returns a promise resolved on successful retrieval and rejected on error
  */
 function getTableList(dbName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.db(dbName).tableList().run()
       .then(function(tableNames) {
         debug('Total tables in database', dbName, tableNames.length);
         resolve(tableNames);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -219,6 +273,9 @@ function getTableList(dbName) {
  * @return {Promise} Returns a promise resolved on successful check and rejected on error
  */
 function tableExists(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     getTableList(dbName)
       .then(function(tableNames) {
@@ -226,9 +283,42 @@ function tableExists(dbName, tableName) {
         debug('Table', tableName, 'in database', dbName, 'found?', tableFound);
         resolve(tableFound);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
+  });
+}
+
+/*
+ * Checks if tables exist in database.
+ * Takes no callback.
+ *
+ * @method tablesExist
+ * @param {String} dbName Database name
+ * @param {Array} tableNames Table names
+ * @return {Promise} Returns a promise resolved on successful check and rejected on error
+ */
+function tablesExist(dbName, tableNames) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+
+  if (!tableNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    getTableList(dbName)
+      .then(function(tables) {
+        var tablesFound = tableNames.filter(function(tableName) {
+          return tables.indexOf(tableName) > -1;
+        });
+        debug('Tables found in database', dbName, tablesFound.length);
+        resolve(tablesFound);
+      })
+      .catch(reject);
   });
 }
 
@@ -242,15 +332,19 @@ function tableExists(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful creation and rejected on error
  */
 function createTable(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.db(dbName).tableCreate(tableName).run()
       .then(function(result) {
         debug('Table', tableName, 'in database', dbName, 'created?', result.tables_created === 1);
         resolve(result.tables_created === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -264,15 +358,19 @@ function createTable(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful drop and rejected on error
  */
 function dropTable(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.db(dbName).tableDrop(tableName).run()
       .then(function(result) {
         debug('Table', tableName, 'in database', dbName, 'dropped?', result.tables_dropped === 1);
         resolve(result.tables_dropped === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -286,14 +384,18 @@ function dropTable(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful creation/existence and rejected on error
  */
 function createTableIfNotExists(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     tableExists(dbName, tableName)
       .then(function(tableFound) {
         return tableFound ? resolve(tableFound) : resolve(createTable(dbName, tableName));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -307,14 +409,31 @@ function createTableIfNotExists(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful creation/existence and rejected on error
  */
 function createTablesIfNotExist(dbName, tableNames) {
-  if (tableNames instanceof String) {
-    return createTableIfNotExists(dbName, tableNames);
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
   }
-  return Promise.all(
-    tableNames.map(function(tableName) {
-      return createTableIfNotExists(dbName, tableName);
-    })
-  );
+  if (!tableNames) {
+    throw(new Error('Table names not specified'));
+  }
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    tablesExist(dbName, tableNames)
+      .then(function(tablesFound) {
+        var tablesNotFound = tableNames.filter(function(tableName) {
+          return tablesFound.indexOf(tableName) < 0;
+        });
+        resolve(Promise.all(
+          tablesNotFound.map(function(tableName) {
+            return createTable(dbName, tableName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -327,14 +446,15 @@ function createTablesIfNotExist(dbName, tableNames) {
  * @return {Promise} Returns a promise resolved on successful drop and rejected on error
  */
 function dropTableIfExists(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     tableExists(dbName, tableName)
       .then(function(tableFound) {
         return tableFound ? resolve(dropTable(dbName, tableName)) : resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -348,14 +468,28 @@ function dropTableIfExists(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful drop and rejected on error
  */
 function dropTablesIfExist(dbName, tableNames) {
-  if (tableNames instanceof String) {
-    return dropTableIfExists(dbName, tableNames);
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
   }
-  return Promise.all(
-    tableNames.map(function(tableName) {
-      return dropTableIfExists(tableName);
-    })
-  );
+  if (!tableNames) {
+    return Promise.resolve();
+  }
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    tablesExist(dbName, tableNames)
+      .then(function(tablesFound) {
+        resolve(Promise.all(
+          tablesFound.map(function(tableName) {
+            return dropTable(dbName, tableName);
+          })
+        ));
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -368,15 +502,19 @@ function dropTablesIfExist(dbName, tableNames) {
  * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
  */
 function resetTable(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.db(dbName).table(tableName).delete().run()
       .then(function(result) {
         debug('Reset table', tableName);
         resolve(result);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -390,9 +528,17 @@ function resetTable(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
  */
 function resetTables(dbName, tableNames) {
-  if (tableNames instanceof String) {
-    return resetTable(dbName, tableNames);
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
   }
+  if (!tableNames) {
+    throw(new Error('Table names not specified'));
+  }
+
+  if (!(tableNames instanceof Array)) {
+    tableNames = [tableNames];
+  }
+
   return Promise.all(
     tableNames.map(function(tableName) {
       return resetTable(dbName, tableName);
@@ -410,15 +556,26 @@ function resetTables(dbName, tableNames) {
  * @return {Promise} Returns a promise resolved on successful fetch and rejected on error
  */
 function getIndexList(dbName, tableName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
   return new Promise(function(resolve, reject) {
-    r.db(dbName).table(tableName).indexList().run()
+    tableExists(dbName, tableName)
+      .then(function(result) {
+        if (result) {
+          return r.db(dbName).table(tableName).indexList().run();
+        } else {
+          return Promise.resolve([]);
+        }
+      })
       .then(function(indexNames) {
         debug('Total indexes on table', tableName, 'in database', dbName, indexNames.length);
         resolve(indexNames);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -433,6 +590,12 @@ function getIndexList(dbName, tableName) {
  * @return {Promise} Returns a promise resolved on successful check and rejected on error
  */
 function indexExists(dbName, tableName, indexName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     getIndexList(dbName, tableName)
       .then(function(indexNames) {
@@ -440,9 +603,35 @@ function indexExists(dbName, tableName, indexName) {
           debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'found?', indexFound);
           resolve(indexFound);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
+  });
+}
+
+function indexesExist(dbName, tableName, indexNames) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(indexNames instanceof Array)) {
+    indexNames = [indexNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    getIndexList(dbName, tableName)
+      .then(function(indexes) {
+          var indexesFound = indexNames.filter(function(indexName) {
+            return indexes.indexOf(indexName) > -1;
+          });
+          debug('Indexes found in table', tableName, 'in database', dbName, indexesFound.length);
+          resolve(indexesFound);
+      })
+      .catch(reject);
   });
 }
 
@@ -458,6 +647,16 @@ function indexExists(dbName, tableName, indexName) {
  * @return {Promise} Returns a promise resolved on successful creation of index and rejected on error
  */
 function createIndex(dbName, tableName, indexName, columns) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexName) {
+    throw(new Error('Index name not specified'));
+  }
+
   var indexCreateQuery = r.db(dbName).table(tableName);
   if (columns) {
     columns = columns.map(function(column) {
@@ -480,11 +679,9 @@ function createIndex(dbName, tableName, indexName, columns) {
         });
         var indexReady = index.length > 0 && index[0].ready;
         debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'ready?', indexReady);
-        resolve(result.ready);
+        resolve(indexReady);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -499,15 +696,22 @@ function createIndex(dbName, tableName, indexName, columns) {
  * @return {Promise} Returns a promise resolved on successful deletion of index and rejected on error
  */
 function dropIndex(dbName, tableName, indexName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexName) {
+    throw(new Error('Index name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     r.db(dbName).table(tableName).indexDrop(indexName).run()
       .then(function(result) {
         debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'dropped?', result.dropped === 1);
         resolve(result.dropped === 1);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -523,14 +727,21 @@ function dropIndex(dbName, tableName, indexName) {
  * @return {Promise} Returns a promise resolved on successful creation/existence of index and rejected on error
  */
 function createIndexIfNotExists(dbName, tableName, indexName, columns) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexName) {
+    throw(new Error('Index name not specified'));
+  }
   return new Promise(function(resolve, reject) {
     indexExists(dbName, tableName, indexName)
       .then(function(indexFound) {
         return indexFound ? resolve(indexFound) : resolve(createIndex(dbName, tableName, indexName, columns));
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -541,13 +752,38 @@ function createIndexIfNotExists(dbName, tableName, indexName, columns) {
  * @method createIndexesIfNotExist
  * @param {String} dbName Database name
  * @param {String} tableName Table name
- * @param {Array} indexesData Array containing individual index data. Example: [ { name: 'field1' }, { name: 'field2' }, { name: 'field1_and_field2', columns: ['field1', 'field2'] }, ...]
+ * @param {Array} indexData Array containing individual index data. Example: [ { name: 'field1' }, { name: 'field2' }, { name: 'field1_and_field2', columns: ['field1', 'field2'] }, ...]
  * @return {Promise} Returns a promise resolved on successful creation/existence of indexes and rejected on error
  */
-function createIndexesIfNotExist(dbName, tableName, indexesData) {
-  return Promise.map(indexesData, function(indexData) {
-    return createIndexIfNotExists(dbName, tableName, indexData.name, indexData.columns);
-  }, { concurrency: 1 }).all();
+function createIndexesIfNotExist(dbName, tableName, indexData) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexData) {
+    throw(new Error('Index data not specified'));
+  }
+  if (!(indexData instanceof Array)) {
+    throw(new Error('Index data should be an array'));
+  }
+
+  var indexNames = indexData.map(function(index) { return index.name; });
+
+  return new Promise(function(resolve, reject) {
+    indexesExist(dbName, tableName, indexNames)
+      .then(function(indexesFound) {
+        var indexesToCreate = indexData.filter(function(index) {
+          return indexesFound.indexOf(index.name) < 0;
+        });
+        resolve(Promise.map(indexesToCreate, function(indexData) {
+            return createIndex(dbName, tableName, indexData.name, indexData.columns);
+          }, { concurrency: 1 })
+        );
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -561,14 +797,21 @@ function createIndexesIfNotExist(dbName, tableName, indexesData) {
  * @return {Promise} Returns a promise resolved on successful deletion of index and rejected on error
  */
 function dropIndexIfExists(dbName, tableName, indexName) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexName) {
+    return Promise.resolve(true);
+  }
   return new Promise(function(resolve, reject) {
     indexExists(dbName, tableName, indexName)
       .then(function(indexFound) {
         return indexFound ? resolve(dropIndex(dbName, tableName, indexName)) : resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
@@ -583,14 +826,30 @@ function dropIndexIfExists(dbName, tableName, indexName) {
  * @return {Promise} Returns a promise resolved on successful deletion of index and rejected on error
  */
 function dropIndexesIfExist(dbName, tableName, indexNames) {
-  if (indexNames instanceof String) {
-    return dropIndexIfExists(dbName, tableName, indexNames);
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
   }
-  return Promise.all(
-    indexNames.map(function(indexName) {
-      return dropIndexIfExists(dbName, tableName, indexName);
-    })
-  );
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+  if (!indexNames) {
+    return Promise.resolve([]);
+  }
+
+  if (!(indexNames instanceof Array)) {
+    indexNames = [indexNames];
+  }
+
+  return new Promise(function(resolve, reject) {
+    indexesExist(dbName, tableName, indexNames)
+      .then(function(indexesFound) {
+        resolve(Promise.map(indexesFound, function(indexName) {
+            return dropIndex(dbName, tableName, indexName);
+          }, { concurrency: 1 })
+        );
+      })
+      .catch(reject);
+  });
 }
 
 /*
@@ -618,10 +877,20 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
  *            { name: 'username' },
  *            { name: 'email' }
  *          ]
-*          }
+ *        }
  * @return {Promise} Returns a promise resolved on and rejected on error
  */
 function migrate(dbName, tableData, indexData) {
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableData) {
+    throw(new Error('Table data not specified'));
+  }
+  if (!indexData) {
+    throw(new Error('Index data not specified'));
+  }
+
   var tableNames = Object.keys(tableData).map(function(tableId) { return tableData[tableId]; });
   return new Promise(function(resolve, reject) {
     createDbIfNotExists(dbName)
@@ -646,13 +915,31 @@ function migrate(dbName, tableData, indexData) {
       .then(function() {
         resolve(true);
       })
-      .catch(function(error) {
-        reject(error);
-      });
+      .catch(reject);
   });
 }
 
-function model(r, dbName, tableName) {
+/**
+ * Returns a database Model on the lines on ActiveRecord in Rails.
+ * It exposes most internal ReQL functions.
+ *
+ * @method Model
+ * @param {Object} r Rethinkdbdash instance
+ * @param {String} dbName The database name
+ * @param {String} tableName The table name
+ * @return {Object} Return an object exposing wrappers around ReQL functions.
+ */
+function Model(r, dbName, tableName) {
+  if (!r) {
+    throw(new Error('Rethinkdb instance required for generating queries'));
+  }
+  if (!dbName) {
+    throw(new Error('Database name not specified'));
+  }
+  if (!tableName) {
+    throw(new Error('Table name not specified'));
+  }
+
   /**
    * Returns a query with table selected.
    *
@@ -686,7 +973,7 @@ function model(r, dbName, tableName) {
    * @return {Query} A rethinkdb query
    */
   function getAll(fields, indexName) {
-    return table().getAll(fields, { index: indexName });
+    return table().getAll(r.args(fields), { index: indexName });
   }
 
   /**
@@ -698,14 +985,16 @@ function model(r, dbName, tableName) {
    * @return {Promise} A promise resolved on successful find and rejected on error
    */
   function find(id) {
-    return Promise.new(function(resolve, reject) {
+    if (!id) {
+      return Promise.resolve(null);
+    }
+
+    return new Promise(function(resolve, reject) {
       get(id).run()
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -719,15 +1008,38 @@ function model(r, dbName, tableName) {
    * @param {String} indexName A secondary index corresponding to the field or a compound index in case of multiple fields.
    * @return {Promise} A promise resolved on successful find and rejected on error
    */
-  function findAll(fields, indexName) {
-    return Promise.new(function(resolve, reject) {
-      getAll(fields, { index: indexName }).run()
+  function findAll() {
+    var args = Array.prototype.slice.call(arguments);
+    var fields = [];
+    var indexName = null;
+    if (args.length === 1) {
+      fields = args;
+    } else {
+      fields = args.slice(0, args.length - 1);
+      indexName = args.slice(args.length - 1)[0];
+    }
+
+    if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
+      throw(new Error('Search fields not specified'));
+    }
+    if (!indexName) {
+      throw(new Error('Index name not specified'));
+    }
+
+    if (fields instanceof Array) {
+      fields.forEach(function(field) {
+        if (field !== 0 && field !== '' && !field) {
+          throw(new Error('Search field must be either a number, string, bool, pseudotype or array'));
+        }
+      });
+    }
+
+    return new Promise(function(resolve, reject) {
+      getAll(fields, indexName).run()
         .then(function(results) {
           resolve(results);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -741,14 +1053,16 @@ function model(r, dbName, tableName) {
    * @return {Promise} A promise resolved on successful filter and rejected on error
    */
   function filter(predicate, options) {
-    return Promise.new(function(resolve, reject) {
+    if (!predicate) {
+      throw(new Error('Predicate not specified'));
+    }
+
+    return new Promise(function(resolve, reject) {
       table().filter(predicate, options || {}).run()
         .then(function(results) {
           resolve(results);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -763,6 +1077,12 @@ function model(r, dbName, tableName) {
    * @return {Promise} Returns a promise resolved on successful insert and rejected on error
    */
   function create(objects, options) {
+    if (!objects) {
+      throw(new Error('Documents not specified'));
+    }
+
+    //FIXME If we ever have a sane Object.clone implementation we should
+    //clone objects instead of extending the passed one.
     var now = Date.now();
     if (objects instanceof Array) {
       objects = objects.map(function(object) {
@@ -774,14 +1094,13 @@ function model(r, dbName, tableName) {
       objects.created_at = objects.created_at || now;
       objects.updated_at = objects.updated_at || now;
     }
-    return Promise.new(function(resolve, reject) {
+
+    return new Promise(function(resolve, reject) {
       table().insert(objects, options || {}).run()
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -797,41 +1116,22 @@ function model(r, dbName, tableName) {
    * @return {Promise} Returns a promise resolved on successful update and rejected on error
    */
   function update(id, updates, options) {
+    if (!id) {
+      throw(new Error('Document id not specified'));
+    }
+    if (!updates) {
+      throw(new Error('Document updates not specified'));
+    }
+
+    //FIXME If we ever have a sane Object.clone implementation we should
+    //clone updates instead of extending the passed one.
     updates.updated_at = updates.updated_at || Date.now();
-    return Promise.new(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
       get(id).update(updates, options || {}).run()
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
-    });
-  }
-
-  /**
-   * Replaces an object identified by given id.
-   * Automatically inserts created_at and updated_at timestamps if not provided in the replacement object.
-   * Ref: http://rethinkdb.com/api/javascript/replace/
-   *
-   * @method replace
-   * @param {String|Integer} id The id of object to replace
-   * @param {Object} replacementObject An object replacing the document
-   * @param {Object} options Optional arguments valid for replace query
-   * @return {Promise} Returns a promise resolved on successful replacement and rejected on error
-   */
-  function replace(id, replacementObject, options) {
-    var now = Date.now();
-    replacementObject.created_at = replacementObject.created_at || now;
-    replacementObject.updated_at = replacementObject.updated_at || now;
-    return Promise.new(function(resolve, reject) {
-      get(id).replace(replacementObject, options || {}).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -845,14 +1145,16 @@ function model(r, dbName, tableName) {
    * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
    */
   function destroy(id, options) {
-    return Promise.new(function(resolve, reject) {
+    if (!id) {
+      throw(new Error('Document id not specified'));
+    }
+
+    return new Promise(function(resolve, reject) {
       get(id).delete(options || {}).run()
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -867,15 +1169,45 @@ function model(r, dbName, tableName) {
    * @param {Object} options Optional arguments valid for delete query
    * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
    */
-  function destroyAll(fields, indexName, options) {
-    return Promise.new(function(resolve, reject) {
-      getAll(fields, { index: indexName }).delete(options || {}).run()
+  function destroyAll() {
+    var args = Array.prototype.slice.call(arguments);
+    var fields = [];
+    var indexName = null;
+    var lastArg = args[args.length - 1];
+    var options = {};
+
+    if (args.length < 2) {
+      fields = args;
+    } else if (lastArg !== null && typeof(lastArg) === 'object') {
+      fields = args.slice(0, args.length - 2);
+      indexName = args[args.length - 2];
+      options = args[args.length - 1];
+    } else {
+      fields = args.slice(0, args.length - 1);
+      indexName = args.slice(args.length - 1)[0];
+    }
+
+    if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
+      throw(new Error('Search fields not specified'));
+    }
+    if (!indexName) {
+      throw(new Error('Index name not specified'));
+    }
+
+    if (fields instanceof Array) {
+      fields.forEach(function(field) {
+        if (field !== 0 && field !== '' && !field) {
+          throw(new Error('Search field must be either a number, string, bool, pseudotype or array'));
+        }
+      });
+    }
+
+    return new Promise(function(resolve, reject) {
+      getAll(fields, indexName).delete(options || {}).run()
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -888,14 +1220,12 @@ function model(r, dbName, tableName) {
    * @return {Promise} Returns a promise resolved on successful sync and rejected on error
    */
   function sync() {
-    return Promise.new(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
       table().sync().run()
         .then(function(result) {
           resolve(result);
         })
-        .catch(function(error) {
-          reject(error);
-        });
+        .catch(reject);
     });
   }
 
@@ -905,7 +1235,6 @@ function model(r, dbName, tableName) {
     filter: filter,
     create: create,
     update: update,
-    replace: replace,
     destroy: destroy,
     destroyAll: destroyAll,
     sync: sync
@@ -918,6 +1247,7 @@ function init(dbConfig) {
     r: r,
     getDbList: getDbList,
     dbExists: dbExists,
+    dbsExist: dbsExist,
     createDb: createDb,
     dropDb: dropDb,
     createDbIfNotExists: createDbIfNotExists,
@@ -926,6 +1256,7 @@ function init(dbConfig) {
     dropDbsIfExist: dropDbsIfExist,
     getTableList: getTableList,
     tableExists: tableExists,
+    tablesExist: tablesExist,
     createTable: createTable,
     dropTable: dropTable,
     createTableIfNotExists: createTableIfNotExists,
@@ -934,6 +1265,7 @@ function init(dbConfig) {
     dropTablesIfExist: dropTablesIfExist,
     getIndexList: getIndexList,
     indexExists: indexExists,
+    indexesExist: indexesExist,
     createIndex: createIndex,
     dropIndex: dropIndex,
     createIndexIfNotExists: createIndexIfNotExists,
@@ -944,7 +1276,7 @@ function init(dbConfig) {
     resetTables: resetTables,
     resetDb: resetDb,
     migrate: migrate,
-    model: model
+    Model: Model
   };
 }
 
