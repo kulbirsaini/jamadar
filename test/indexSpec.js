@@ -7,6 +7,7 @@ chai.config.showDiff = true;
 
 var chaiAsPromised = require('chai-as-promised');
 var path = require('path');
+var Factory = require('rosie').Factory;
 
 var config = require(path.join(__dirname, 'config'));
 var dbLayer = require(path.join(__dirname, '../index'));
@@ -14,41 +15,178 @@ var dbLayer = require(path.join(__dirname, '../index'));
 var db = dbLayer(config.rethinkdb);
 var expect = chai.expect;
 var should = chai.should();
+var urls = [
+  'http://saini.co.in/',
+  'http://gofedora.com',
+  'http://4bo.net',
+  'http://example.com',
+  'http://google.com/whatever',
+  'http://google.io',
+  'http://wow.com',
+  'http://saini.co.in/asdf',
+  'http://gofedora.com/fewasdf',
+  'http://4bo.net/fewljkasdf',
+  'http://example.com/asdf/asdf/wesadf',
+  'http://google.com/whatever/fewsjdfasd/asdf/wefas',
+  'http://google.io/wkwksks.as./s/asd/sd/sdf',
+  'http://wow.com/fewsadf/sdf',
+  'http://www.saini.co.in/',
+  'http://www.gofedora.com',
+  'http://www.4bo.net',
+  'http://www.example.com',
+  'http://www.google.com/whatever',
+  'http://www.google.io',
+  'http://www.wow.com',
+  'http://www.saini.co.in/asdf',
+  'http://www.gofedora.com/fewasdf',
+  'http://www.4bo.net/fewljkasdf',
+  'http://www.example.com/asdf/asdf/wesadf',
+  'http://www.google.com/whatever/fewsjdfasd/asdf/wefas',
+  'http://www.google.io/wkwksks.as./s/asd/sd/sdf',
+  'http://www.wow.com/fewsadf/sdf'
+];
+var urlLength = urls.length;
 
 chai.use(chaiAsPromised);
 
-function dropDb(dbName, done) {
-  db.dropDbIfExists(config.rethinkdb.db)
+Factory.define('url')
+  .attr('url', function() { return getRandomUrl(); })
+  .attr('post_id', function() { return randomIntFromInterval(1, 1000); })
+  .attr('created_at', function() { return Date.now(); })
+  .attr('updated_at', function() { return Date.now(); })
+  .attr('id', function() { return randomIntFromInterval(1, 10000); });
+
+function randomIntFromInterval(min, max) {
+  return Math.floor(Math.random()*(max - min + 1) + min);
+}
+
+function getRandomUrl() {
+  return urls[randomIntFromInterval(0, urlLength - 1)];
+}
+
+function getRandomObjects() {
+  var num = randomIntFromInterval(10, 20);
+  var objects = [];
+  var object = null;
+  for (var i = 0; i < num; i++) {
+    object = Factory.build('url');
+    object.url = object.url + '/' + randomIntFromInterval(0, 1000);
+    objects.push(object);
+  }
+  return objects;
+}
+
+function createDb(dbNames, done) {
+  db.createDbsIfNotExist(dbNames)
+    .then(function(result) {
+      done();
+    })
+    .catch(done);
+}
+
+function dropDb(dbNames, done) {
+  db.dropDbsIfExist(dbNames)
   .then(function(result) {
     done();
   })
   .catch(done);
 }
 
-/**
- * WARNING: The order of tests in this file is so important that you would want to shoot
- * yourself in the head resolving the errors that occur once you alter the order.
- */
+function recreateDb(dbNames, done) {
+  db.dropDbsIfExist(dbNames)
+    .then(function(result) {
+      return db.createDbsIfNotExist(dbNames);
+    })
+    .then(function(result) {
+      done();
+    })
+    .catch(done);
+}
+
+function createTables(dbName, tableNames, done) {
+  db.createTablesIfNotExist(dbName, tableNames)
+    .then(function(result) {
+      done();
+    })
+    .catch(done);
+}
+
+function recreateTables(dbName, tableNames, done) {
+  db.dropTablesIfExist(dbName, tableNames)
+    .then(function(result) {
+      return db.createTablesIfNotExist(dbName, tableNames);
+    })
+    .then(function(result) {
+      done();
+    })
+    .catch(done);
+}
+
+function resetTables(dbName, tableNames, done) {
+  db.resetTables(dbName, tableNames)
+    .then(function(result) {
+      done();
+    })
+    .catch(done);
+}
+
+function mustBeTrue(result) {
+  result.should.be.Boolean;
+  result.should.be.true;
+}
+
+function mustBeFalse(result) {
+  result.should.be.Boolean;
+  result.should.be.false;
+}
+
 //TODO FIXME write tests for functions which use instanceof method.
 describe('Database Layer', function() {
-  var tableNames = Object.keys(config.app.tables).map(function(tableId) { return config.app.tables[tableId]; });
+  var dbName = config.rethinkdb.db;
+  var tables = config.app.tables;
+  var indexes = config.app.indexes;
+  var tableNames = Object.keys(tables).map(function(tableId) { return tables[tableId]; });
+  var randomTableId = Object.keys(indexes)[0];
+  var indexNames = indexes[randomTableId].map(function(indexData) { return indexData.name; });
+  var urlTable = tableNames[0];
+  var UrlModel = db.Model(db.r, dbName, urlTable);
 
   this.timeout(5000);
 
   before(function(done) {
-    dropDb(config.rethinkdb.db, done);
+    dropDb(dbName, done);
   });
 
   after(function(done) {
-    dropDb(config.rethinkdb.db, done);
+    dropDb(dbName, done);
   });
 
   describe('getDbList', function() {
+    before(function(done) {
+      dropDb(dbName, done);
+    });
+
     it('should return a list of database names', function(done) {
       db.getDbList()
         .then(function(result) {
           result.should.be.Array;
-          result.should.not.contain(config.rethinkdb.db);
+          result.should.not.contain(dbName);
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe('getDbList', function() {
+    before(function(done) {
+      createDb(dbName, done);
+    });
+
+    it('should return a list of database names', function(done) {
+      db.getDbList()
+        .then(function(result) {
+          result.should.be.Array;
+          result.should.contain(dbName);
           done();
         })
         .catch(done);
@@ -56,10 +194,29 @@ describe('Database Layer', function() {
   });
 
   describe('dbExists', function() {
+    before(function(done) {
+      dropDb(dbName, done);
+    });
+
     it('should return false if a database does not exist', function(done) {
-      db.dbExists(config.rethinkdb.db)
+      db.dbExists(dbName)
         .then(function(result) {
-          result.should.be.false;
+          mustBeFalse(result);
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe('dbExists', function() {
+    before(function(done) {
+      createDb(dbName, done);
+    });
+
+    it('should return true if a database does not exist', function(done) {
+      db.dbExists(dbName)
+        .then(function(result) {
+          mustBeTrue(result);
           done();
         })
         .catch(done);
@@ -67,124 +224,161 @@ describe('Database Layer', function() {
   });
 
   describe('createDb', function() {
-    it('should throw an error if database is not specified', function() {
-      expect(db.createDb.bind(db)).to.throw(Error);
+    before(function(done) {
+      dropDb(dbName, done);
+    });
+
+    it('should be rejected with an error if database is not specified', function() {
+      db.createDb().should.be.rejectedWith(Error);
     });
 
     it('should create a database', function(done) {
-      db.createDb(config.rethinkdb.db)
+      db.createDb(dbName)
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
-    it('should throw an error if a database already exists', function() {
-      db.createDb(config.rethinkdb.db).should.be.rejectedWith(Error);
-    });
-  });
-
-  describe('getDbList', function() {
-    it('should return an array containing databases', function(done) {
-      db.getDbList()
-        .then(function(result) {
-          result.should.be.Array;
-          result.should.contain(config.rethinkdb.db);
-          done();
-        })
-        .catch(done);
-    });
-  });
-
-  describe('dbExists', function() {
-    it('should return true if a database exists', function(done) {
-      db.dbExists(config.rethinkdb.db)
-        .then(function(result) {
-          result.should.be.true;
-          done();
-        })
-        .catch(done);
+    it('should be rejected with an error if a database already exists', function() {
+      db.createDb(dbName).should.be.rejectedWith(Error);
     });
   });
 
   describe('dropDb', function() {
-    it('should throw an error if database is not specified', function() {
-      expect(db.dropDb.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
+    });
+
+    it('should be rejected with an error if database is not specified', function() {
+      db.dropDb().should.be.rejectedWith(Error);
     });
 
     it('should drop a database', function(done) {
-      db.dropDb(config.rethinkdb.db)
+      db.dropDb(dbName)
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
-    it('should throw an error when a database does not exist', function() {
-      db.dropDb(config.rethinkdb.db).should.be.rejectedWith(Error);
+    it('should be rejected with an error when a database does not exist', function() {
+      db.dropDb(dbName).should.be.rejectedWith(Error);
     });
   });
 
   describe('createDbIfNotExists', function() {
-    it('should throw an error if database is not specified', function() {
-      expect(db.createDbIfNotExists.bind(db)).to.throw(Error);
+    before(function(done) {
+      dropDb(dbName, done);
+    });
+
+    it('should be rejected with an error if database is not specified', function() {
+      db.createDbIfNotExists().should.be.rejectedWith(Error);
     });
 
     it('should create a database if it does not exist', function(done) {
-      db.createDbIfNotExists(config.rethinkdb.db)
+      db.dbExists(dbName)
         .then(function(result) {
-          result.should.be.true;
+          mustBeFalse(result);
+          return db.createDbIfNotExists(dbName);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.dbExists(dbName);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
     it('should create a database even if it does exist', function(done) {
-      db.createDbIfNotExists(config.rethinkdb.db)
+      db.dbExists(dbName)
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
+          return db.createDbIfNotExists(dbName);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.dbExists(dbName);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
-    it('should not throw an error', function() {
-      db.createDbIfNotExists(config.rethinkdb.db).should.not.be.rejectedWith(Error);
+    it('should not be rejected with an error even if database already exists', function() {
+      db.createDbIfNotExists(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
   describe('dropDbIfExists', function() {
-    it('should not throw an error if database is not specified', function() {
+    before(function(done) {
+      createDb(dbName, done);
+    });
+
+    it('should not be rejected with an error if database is not specified', function() {
       db.dropDbIfExists().should.not.be.rejectedWith(Error);
     });
 
-    it('should drop a database if it exists', function(done) {
-      db.dropDbIfExists(config.rethinkdb.db)
+    it('should return true if a database is not specified', function(done) {
+      db.dropDbIfExists()
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should drop a database if it exists', function(done) {
+      db.dbExists(dbName)
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.dropDbIfExists(dbName);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.dbExists(dbName);
+        })
+        .then(function(result) {
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
 
     it('should not throw an Error if database does not exist', function() {
-      db.dropDbIfExists(config.rethinkdb.db).should.not.be.rejectedWith(Error);
+      db.dropDbIfExists(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
   describe('createDbsIfNotExist', function() {
-    var dbs = [config.rethinkdb.db, config.rethinkdb.db + '_1' + config.rethinkdb.db + '_2'];
+    var dbs = [dbName, dbName + '_1' + dbName + '_2'];
 
-    it('should throw an error if database(s) are not specified', function() {
-      expect(db.createDbsIfNotExist.bind(db)).to.throw(Error);
+    it('should be rejected with an error if database(s) are not specified', function() {
+      db.createDbsIfNotExist().should.be.rejectedWith(Error);
     });
 
     it('should create databases', function(done) {
       db.createDbsIfNotExist(dbs)
-        .then(function(result) {
-          result.should.be.Array;
+        .then(function(results) {
+          results.should.be.Array;
+          results.filter(function(result) {
+            return result === false;
+          }).should.have.length(0);
+          return db.dbsExist(dbs);
+        })
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(dbs.length);
+          results.filter(function(result) {
+            return dbs.indexOf(result) < 0;
+          }).should.have.length(0);
           done();
         })
         .catch(done);
@@ -196,16 +390,24 @@ describe('Database Layer', function() {
   });
 
   describe('dropDbsIfExist', function() {
-    var dbs = [config.rethinkdb.db, config.rethinkdb.db + '_1' + config.rethinkdb.db + '_2'];
+    var dbs = [dbName, dbName + '_1' + dbName + '_2'];
 
-    it('should not throw an error if database(s) are not specified', function() {
-      expect(db.dropDbsIfExist.bind(db)).to.not.throw(Error);
+    it('should not be rejected with an error if database(s) are not specified', function() {
+      db.dropDbsIfExist().should.not.be.rejectedWith(Error);
     });
 
-    it('should create databases', function(done) {
+    it('should drop databases', function(done) {
       db.dropDbsIfExist(dbs)
-        .then(function(result) {
-          result.should.be.Array;
+        .then(function(results) {
+          results.should.be.Array;
+          results.filter(function(result) {
+            return result === false;
+          }).should.have.length(0);
+          return db.dbsExist(dbs);
+        })
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(0);
           done();
         })
         .catch(done);
@@ -217,50 +419,54 @@ describe('Database Layer', function() {
   });
 
   describe('getTableList', function() {
-    it('should throw an error when database does not exist', function() {
-      db.getTableList(config.rethinkdb.db).should.be.rejectedWith(Error);
+    before(function(done) {
+      dropDb(dbName, done);
     });
 
-    it('should not throw an error when database is not specified', function() {
-      expect(db.getTableList.bind(db)).to.throw(Error);
+    it('should be rejected with an error when database is not specified', function() {
+      db.getTableList().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error when database does not exist', function() {
+      db.getTableList(dbName).should.be.rejectedWith(Error);
     });
   });
 
   describe('getTableList', function() {
     before(function(done) {
-      db.createDbIfNotExists(config.rethinkdb.db)
-        .then(function(result) {
-          done();
-        })
-        .catch(done);
+      dropDb(dbName, done);
+    });
+
+    before(function(done) {
+      createDb(dbName, done);
     });
 
     it('should return an empty list when there are no tables', function(done) {
-      db.getTableList(config.rethinkdb.db)
-        .then(function(result) {
-          result.should.be.Array;
-          result.should.have.length(0);
+      db.getTableList(dbName)
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(0);
           done();
         })
         .catch(done);
     });
 
-    it('should not throw an error when database exists', function() {
-      db.getTableList(config.rethinkdb.db).should.not.be.rejectedWith(Error);
+    it('should not be rejected with an error when database exists', function() {
+      db.getTableList(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
   describe('getTableList', function() {
     before(function(done) {
-      db.createTablesIfNotExist(config.rethinkdb.db, tableNames)
-        .then(function(result) {
-          done();
-        })
-        .catch(done);
+      createDb(dbName, done);
+    });
+
+    before(function(done) {
+      createTables(dbName, tableNames, done);
     });
 
     it('should return a list of tables', function(done) {
-      db.getTableList(config.rethinkdb.db)
+      db.getTableList(dbName)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(tableNames.length);
@@ -274,97 +480,179 @@ describe('Database Layer', function() {
   });
 
   describe('tableExists', function() {
+    before(function(done) {
+      recreateDb(dbName, done);
+    });
+
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
+    });
+
     it('should return true if a table exists', function(done) {
-      db.tableExists(config.rethinkdb.db, tableNames[0])
+      db.tableExists(dbName, tableNames[0])
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
     it('should return false if a table does not exist', function(done) {
-      db.tableExists(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf')
+      db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
-          result.should.be.false;
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
 
-    it('should throw an error when database name is not specified', function() {
-      expect(db.tableExists.bind(db)).to.throw(Error);
+    it('should return false when table name is not specified', function(done) {
+      db.tableExists(dbName)
+        .then(function(result) {
+          mustBeFalse(result);
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should be rejected with an error when database name is not specified', function() {
+      db.tableExists().should.be.rejectedWith(Error);
+    });
+
+    it('should not be rejected with an error when table name is not specified', function() {
+      db.tableExists(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
   describe('createTable', function() {
-    it('should throw an error when database name is not specified', function() {
-      expect(db.createTable.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error when table name is not specified', function() {
-      expect(db.createTable.bind(db, config.rethinkdb.db)).to.throw(Error);
+    it('should be rejected with an error when database name is not specified', function() {
+      db.createTable().should.be.rejectedWith(Error);
     });
 
-    it('should create a table', function(done) {
-      db.createTable(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf')
+    it('should be rejected with an error when table name is not specified', function() {
+      db.createTable(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should create a table when it does not exist', function(done) {
+      db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
-          result.should.be.true;
-          return db.tableExists(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf');
+          mustBeFalse(result);
+          return db.createTable(dbName, 'asdfasdfasdfasdfasdfasdf');
         })
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
+          return db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf');
+        })
+        .then(function(result) {
+          mustBeTrue(result);
           done();
         })
         .catch(done);
+    });
+
+    it('should be rejected with an error when table already exists', function() {
+      db.createTable(dbName, 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
     });
   });
 
   describe('dropTable', function() {
-    it('should throw an error when database name is not specified', function() {
-      expect(db.dropTable.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error when table name is not specified', function() {
-      expect(db.dropTable.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      createTables(dbName, 'asdfasdfasdfasdfasdfasdf', done);
     });
 
-    it('should drop a table', function(done) {
-      db.dropTable(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf')
+    it('should be rejected with an error when database name is not specified', function() {
+      db.dropTable().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error when table name is not specified', function() {
+      db.dropTable(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should drop a table if it exists', function(done) {
+      db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
-          result.should.be.true;
-          return db.tableExists(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf');
+          mustBeTrue(result);
+          return db.dropTable(dbName, 'asdfasdfasdfasdfasdfasdf');
         })
         .then(function(result) {
-          result.should.be.false;
+          mustBeTrue(result);
+          return db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf');
+        })
+        .then(function(result) {
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
+
+    it('should be rejected with an error when table does not exist', function() {
+      db.dropTable(dbName, 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
+    });
   });
 
   describe('dropTableIfExists', function() {
-    it('should throw an error when database name is not specified', function() {
-      expect(db.dropTableIfExists.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error when table name is not specified', function() {
-      expect(db.dropTableIfExists.bind(db, config.rethinkdb.db)).to.not.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
+    });
+
+    it('should be rejected with an error when database name is not specified', function() {
+      db.dropTableIfExists().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error when table name is not specified', function() {
+      db.dropTableIfExists(dbName).should.not.be.rejectedWith(Error);
+    });
+
+    it('should return true if not table name is specified', function(done) {
+      db.dropTableIfExists(dbName)
+        .then(function(result) {
+          mustBeTrue(result);
+          done();
+        })
+        .catch(done);
     });
 
     it('should drop table if exists', function(done) {
-      db.dropTableIfExists(config.rethinkdb.db, tableNames[0])
+      db.tableExists(dbName, tableNames[0])
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
+          return db.dropTableIfExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.tableExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
 
     it('should drop table if does not exist', function(done) {
-      db.dropTableIfExists(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdf')
+      db.tableExists(dbName, tableNames[0])
         .then(function(result) {
-          result.should.be.true;
+          mustBeFalse(result);
+          return db.dropTableIfExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.tableExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeFalse(result);
           done();
         })
         .catch(done);
@@ -372,135 +660,41 @@ describe('Database Layer', function() {
   });
 
   describe('dropTablesIfExist', function() {
-    it('should throw an error when database name is not specified', function() {
-      expect(db.dropTablesIfExist.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should not throw an error when table name is not specified', function() {
-      expect(db.dropTablesIfExist.bind(db, config.rethinkdb.db)).to.not.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
+    });
+
+    it('should be rejected with an error when database name is not specified', function() {
+      db.dropTablesIfExist().should.be.rejectedWith(Error);
+    });
+
+    it('should not be rejected with an error when table name is not specified', function() {
+      db.dropTablesIfExist(dbName).should.not.be.rejectedWith(Error);
     });
 
     it('should drop tables if exist', function(done) {
-      db.dropTablesIfExist(config.rethinkdb.db, tableNames)
-        .then(function(result) {
-          result.should.be.Array;
-          result.should.have.length(tableNames.length - 1);
-          done();
-        })
-        .catch(done);
-    });
-
-    it('should drop tables if not exist', function(done) {
-      db.dropTablesIfExist(config.rethinkdb.db, ['a', 'b', 'c'])
-        .then(function(result) {
-          result.should.be.Array;
-          result.should.have.length(0);
-          done();
-        })
-        .catch(done);
-    });
-  });
-
-  describe('createTableIfNotExists', function() {
-    it('should throw an error when database name is not specified', function() {
-      expect(db.createTableIfNotExists.bind(db)).to.throw(Error);
-    });
-
-    it('should throw an error when table name is not specified', function() {
-      expect(db.createTableIfNotExists.bind(db, config.rethinkdb.db)).to.throw(Error);
-    });
-
-    it('should create a table if not exists', function(done) {
-      db.createTableIfNotExists(config.rethinkdb.db, tableNames[0])
-        .then(function(result) {
-          result.should.be.true;
-          return db.tableExists(config.rethinkdb.db, tableNames[0]);
-        })
-        .then(function(result) {
-          result.should.be.true;
-          done();
-        })
-        .catch(done);
-    });
-
-    it('should create a table if exists', function(done) {
-      db.createTableIfNotExists(config.rethinkdb.db, tableNames[0])
-        .then(function(result) {
-          result.should.be.true;
-          return db.tableExists(config.rethinkdb.db, tableNames[0]);
-        })
-        .then(function(result) {
-          result.should.be.true;
-          done();
-        })
-        .catch(done);
-    });
-  });
-
-  describe('createTablesIfNotExist', function() {
-    it('should throw an error when database name is not specified', function() {
-      expect(db.createTablesIfNotExist.bind(db)).to.throw(Error);
-    });
-
-    it('should throw an error when table name is not specified', function() {
-      expect(db.createTablesIfNotExist.bind(db, config.rethinkdb.db)).to.throw(Error);
-    });
-
-    it('should create tables if not exist', function(done) {
-      db.createTablesIfNotExist(config.rethinkdb.db, tableNames)
-        .then(function(result) {
-          result.should.be.Array;
-          result.should.have.length(tableNames.length - 1);
-          return db.getTableList(config.rethinkdb.db);
+      var curTables = tableNames.slice(0, 3);
+      db.tablesExist(dbName, curTables)
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(curTables.length);
+          results.filter(function(result) {
+            return curTables.indexOf(result) < 0;
+          }).should.have.length(0);
+          return db.dropTablesIfExist(dbName, curTables);
         })
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(tableNames.length);
-          results.forEach(function(result) {
-            tableNames.should.contain(result);
-          });
-          done();
+          results.should.have.length(curTables.length);
+          results.filter(function(result) {
+            return result === true;
+          }).should.have.length(curTables.length);
+          return db.tablesExist(dbName, curTables);
         })
-        .catch(done);
-    });
-
-    it('should create tables if exist', function(done) {
-      db.createTablesIfNotExist(config.rethinkdb.db, tableNames)
-        .then(function(result) {
-          result.should.be.Array;
-          result.should.have.length(0);
-          return db.getTableList(config.rethinkdb.db);
-        })
-        .then(function(results) {
-          results.should.be.Array;
-          results.should.have.length(tableNames.length);
-          results.forEach(function(result) {
-            tableNames.should.contain(result);
-          });
-          done();
-        })
-        .catch(done);
-    });
-  });
-
-  describe('getIndexList', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.getIndexList.bind(db)).to.throw(Error);
-    });
-
-    it('should throw an error if table name if not specified', function() {
-      expect(db.getIndexList.bind(db, config.rethinkdb.db)).to.throw(Error);
-    });
-
-    it('should not throw an error if database and table name is specified', function() {
-      expect(db.getIndexList.bind(db, config.rethinkdb.db, 'adfs')).to.not.throw(Error);
-    });
-
-    it('should return an empty list when table does not exit', function(done) {
-      db.getIndexList(config.rethinkdb.db, 'aasdfasdf')
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
@@ -509,8 +703,167 @@ describe('Database Layer', function() {
         .catch(done);
     });
 
-    it('should return an empty list when table no indexes exist', function(done) {
-      db.getIndexList(config.rethinkdb.db, config.app.tables[randomTableId])
+    it('should drop tables if not exist', function(done) {
+      db.tablesExist(dbName, ['a', 'b', 'c'])
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(0);
+          return db.dropTablesIfExist(dbName, ['a', 'b', 'c']);
+        })
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(0);
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should return empty array when not table names specified', function(done) {
+      db.dropTablesIfExist(dbName)
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(0);
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe('createTableIfNotExists', function() {
+    before(function(done) {
+      recreateDb(dbName, done);
+    });
+
+    it('should be rejected with an error when database name is not specified', function() {
+      db.createTableIfNotExists().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error when table name is not specified', function() {
+      db.createTableIfNotExists(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should create a table if not exists', function(done) {
+      db.tableExists(dbName, tableNames[0])
+        .then(function(result) {
+          mustBeFalse(result);
+          return db.createTableIfNotExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.tableExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should create a table if exists', function(done) {
+      db.tableExists(dbName, tableNames[0])
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.createTableIfNotExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          return db.tableExists(dbName, tableNames[0]);
+        })
+        .then(function(result) {
+          mustBeTrue(result);
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe('createTablesIfNotExist', function() {
+    before(function(done) {
+      recreateDb(dbName, done);
+    });
+
+    it('should be rejected with an error when database name is not specified', function() {
+      db.createTablesIfNotExist().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error when table name is not specified', function() {
+      db.createTablesIfNotExist(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should create tables if not exist', function(done) {
+      db.tablesExist(dbName, tableNames)
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(0);
+          return db.createTablesIfNotExist(dbName, tableNames);
+        })
+        .then(function(result) {
+          result.should.be.Array;
+          result.should.have.length(tableNames.length);
+          return db.tablesExist(dbName, tableNames);
+        })
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(tableNames.length);
+          results.filter(function(result) {
+            return tableNames.indexOf(result) < 0;
+          }).should.have.length(0);
+          done();
+        })
+        .catch(done);
+    });
+
+    it('should create tables if exist', function(done) {
+      db.tablesExist(dbName, tableNames)
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(tableNames.length);
+          results.filter(function(result) {
+            return tableNames.indexOf(result) < 0;
+          }).should.have.length(0);
+          return db.createTablesIfNotExist(dbName, tableNames);
+        })
+        .then(function(result) {
+          result.should.be.Array;
+          result.should.have.length(0);
+          return db.getTableList(dbName);
+        })
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(tableNames.length);
+          results.filter(function(result) {
+            return tableNames.indexOf(result) < 0;
+          }).should.have.length(0);
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe('getIndexList', function() {
+
+    before(function(done) {
+      recreateDb(dbName, done);
+    });
+
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
+    });
+
+    it('should be rejected with an error if database name if not specified', function() {
+      db.getIndexList().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name if not specified', function() {
+      db.getIndexList(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table does not exit', function() {
+      db.getIndexList(dbName, 'adfs').should.be.rejectedWith(Error);
+    });
+
+    it('should return an empty list when table has no indexes', function(done) {
+      db.getIndexList(dbName, tableNames[0])
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
@@ -520,11 +873,11 @@ describe('Database Layer', function() {
     });
 
     it('should return list of indexes on a table', function(done) {
-      db.createIndexesIfNotExist(config.rethinkdb.db, config.app.tables[randomTableId], config.app.indexes[randomTableId])
+      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(indexNames.length);
-          return db.getIndexList(config.rethinkdb.db, config.app.tables[randomTableId]);
+          return db.getIndexList(dbName, tables[randomTableId]);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -539,128 +892,151 @@ describe('Database Layer', function() {
   });
 
   describe('indexExists', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.indexExists.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name if not specified', function() {
-      expect(db.indexExists.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
+    });
+
+    it('should be rejected with an error if database name if not specified', function() {
+      db.indexExists().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name if not specified', function() {
+      db.indexExists(dbName).should.be.rejectedWith(Error);
     });
 
     it('should return true if an index exist on a table', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0])
+      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
+        .then(function(results) {
+          results.should.be.Array;
+          results.should.have.length(indexNames.length);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
+        })
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
     it('should return false if an index does not exist on a table', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], 'asdfasdfasdfasdfasdfasdf')
+      db.indexExists(dbName, tables[randomTableId], 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
-          result.should.be.false;
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
 
-    it('should return false if a table does not exist', function(done) {
-      db.indexExists(config.rethinkdb.db, 'asdfasdfasdfasdfasdfasdffsadfasdf', 'asdfasdfasdfasdfasdfasdf')
-        .then(function(result) {
-          result.should.be.false;
-          done();
-        })
-        .catch(done);
+    it('should be rejected with an error if a table does not exist', function() {
+      db.indexExists(dbName, 'asdfasdfasdfasdfasdfasdffsadfasdf', 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
     });
   });
 
   describe('dropIndex', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.dropIndex.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name if not specified', function() {
-      expect(db.dropIndex.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
     });
 
-    it('should throw an error if index name if not specified', function() {
-      expect(db.dropIndex.bind(db, config.rethinkdb.db, config.app.tables[randomTableId])).to.throw(Error);
+    it('should be rejected with an error if database name if not specified', function() {
+      db.dropIndex().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name if not specified', function() {
+      db.dropIndex(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if index name if not specified', function() {
+      db.dropIndex(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
     });
 
     it('should drop an index and return true if exists', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0])
+      db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[0])
         .then(function(result) {
-          result.should.be.true;
-          return db.dropIndex(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0]);
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
         })
         .then(function(result) {
-          result.should.be.true;
-          return db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0]);
+          mustBeTrue(result);
+          return db.dropIndex(dbName, tables[randomTableId], indexNames[0]);
         })
         .then(function(result) {
-          result.should.be.false;
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
+        })
+        .then(function(result) {
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
 
-    it('should throw an error if index does not exist', function() {
-      db.dropIndex(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0]).should.be.rejectedWith(Error);
+    it('should be rejected with an error if index does not exist', function() {
+      db.dropIndex(dbName, tables[randomTableId], indexNames[0]).should.be.rejectedWith(Error);
     });
   });
 
   describe('dropIndexIfExists', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.dropIndexIfExists.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name if not specified', function() {
-      expect(db.dropIndexIfExists.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
     });
 
-    it('should not throw an error if index name if not specified', function() {
-      expect(db.dropIndexIfExists.bind(db, config.rethinkdb.db, config.app.tables[randomTableId])).to.not.throw(Error);
+    it('should be rejected with an error if database name if not specified', function() {
+      db.dropIndexIfExists().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name if not specified', function() {
+      db.dropIndexIfExists(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should not be rejected with an error if index name if not specified', function() {
+      db.dropIndexIfExists(dbName, tables[randomTableId]).should.not.be.rejectedWith(Error);
     });
 
     it('should drop an index and return true if exists', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1])
+      db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[1])
         .then(function(result) {
-          result.should.be.true;
-          return db.dropIndexIfExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.true;
-          return db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeTrue(result);
+          return db.dropIndexIfExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.false;
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
+        })
+        .then(function(result) {
+          mustBeFalse(result);
           done();
         })
         .catch(done);
     });
 
-    it('should drop an index and return true if exists', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1])
+    it('should drop an index and return true if it does not exist', function(done) {
+      db.indexExists(dbName, tables[randomTableId], indexNames[1])
         .then(function(result) {
-          result.should.be.false;
-          return db.dropIndexIfExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeFalse(result);
+          return db.dropIndexIfExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.true;
-          return db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.false;
+          mustBeFalse(result);
           done();
         })
         .catch(done);
@@ -668,34 +1044,46 @@ describe('Database Layer', function() {
   });
 
   describe('dropIndexesIfExist', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.dropIndexesIfExist.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name is not specified', function() {
-      expect(db.dropIndexesIfExist.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
     });
 
-    it('should not throw an error if index names are not specified', function() {
-      expect(db.dropIndexesIfExist.bind(db, config.rethinkdb.db, config.app.tables[randomTableId])).to.not.throw(Error);
+    it('should be rejected with an error if database name if not specified', function() {
+      db.dropIndexesIfExist().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name is not specified', function() {
+      db.dropIndexesIfExist(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should not be rejected with an error if index names are not specified', function() {
+      db.dropIndexesIfExist(dbName, tables[randomTableId]).should.not.be.rejectedWith(Error);
     });
 
     it('should drop indexes and return true if they exist', function(done) {
-      var indexesLength = null;
-      db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames)
+      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
         .then(function(results) {
           results.should.be.Array;
-          indexesLength = results.length;
-          results.should.not.have.length(0);
-          return db.dropIndexesIfExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          results.filter(function(result) {
+            return result === true;
+          }).should.have.length(indexNames.length);
+          return db.indexesExist(dbName, tables[randomTableId], indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(indexesLength);
-          return db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          results.should.have.length(indexNames.length);
+          return db.dropIndexesIfExist(dbName, tables[randomTableId], indexNames);
+        })
+        .then(function(results) {
+          results.should.be.Array;
+          results.filter(function(result) {
+            return result === true;
+          }).should.have.length(indexNames.length);
+          return db.indexesExist(dbName, tables[randomTableId], indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -706,18 +1094,16 @@ describe('Database Layer', function() {
     });
 
     it('should drop indexes and return if they do not exist', function(done) {
-      var indexesLength = null;
-      db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames)
+      db.indexesExist(dbName, tables[randomTableId], indexNames)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
-          indexesLength = results.length;
-          return db.dropIndexesIfExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          return db.dropIndexesIfExist(dbName, tables[randomTableId], indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(indexesLength);
-          return db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          results.should.have.length(0);
+          return db.indexesExist(dbName, tables[randomTableId], indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -729,88 +1115,98 @@ describe('Database Layer', function() {
   });
 
   describe('createIndex', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.createIndex.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name if not specified', function() {
-      expect(db.createIndex.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
     });
 
-    it('should throw an error if index name if not specified', function() {
-      expect(db.createIndex.bind(db, config.rethinkdb.db, config.app.tables[randomTableId])).to.throw(Error);
+    it('should be rejected with an error if database name if not specified', function() {
+      db.createIndex().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name if not specified', function() {
+      db.createIndex(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if index name if not specified', function() {
+      db.createIndex(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
     });
 
     it('should create an index if does not exist', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0])
+      db.indexExists(dbName, tables[randomTableId], indexNames[0])
         .then(function(result) {
-          result.should.be.false;
-          return db.createIndex(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0]);
+          mustBeFalse(result);
+          return db.createIndex(dbName, tables[randomTableId], indexNames[0]);
         })
         .then(function(result) {
-          result.should.be.true;
-          return db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0]);
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
         })
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
-    it('should throw an error if index already exist', function() {
-      db.createIndex(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[0]).should.be.rejectedWith(Error);
+    it('should be rejected with an error if index already exist', function() {
+      db.createIndex(dbName, tables[randomTableId], indexNames[0]).should.be.rejectedWith(Error);
     });
   });
 
   describe('createIndexIfNotExists', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.createIndexIfNotExists.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name if not specified', function() {
-      expect(db.createIndexIfNotExists.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
     });
 
-    it('should throw an error if index name if not specified', function() {
-      expect(db.createIndexIfNotExists.bind(db, config.rethinkdb.db, config.app.tables[randomTableId])).to.throw(Error);
+    it('should be rejected with an error if database name if not specified', function() {
+      db.createIndexIfNotExists().should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if table name if not specified', function() {
+      db.createIndexIfNotExists(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if index name if not specified', function() {
+      db.createIndexIfNotExists(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
     });
 
     it('should create an index if does not exist', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1])
+      db.indexExists(dbName, tables[randomTableId], indexNames[1])
         .then(function(result) {
-          result.should.be.false;
-          return db.createIndexIfNotExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeFalse(result);
+          return db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.true;
-          return db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
     });
 
     it('should return true if index exist', function(done) {
-      db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1])
+      db.indexExists(dbName, tables[randomTableId], indexNames[1])
         .then(function(result) {
-          result.should.be.true;
-          return db.createIndexIfNotExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeTrue(result);
+          return db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.true;
-          return db.indexExists(config.rethinkdb.db, config.app.tables[randomTableId], indexNames[1]);
+          mustBeTrue(result);
+          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
         })
         .then(function(result) {
-          result.should.be.true;
+          mustBeTrue(result);
           done();
         })
         .catch(done);
@@ -818,58 +1214,64 @@ describe('Database Layer', function() {
   });
 
   describe('createIndexesIfNotExist', function() {
-    var randomTableId = Object.keys(config.app.indexes)[0];
-    var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-
-    it('should throw an error if database name if not specified', function() {
-      expect(db.createIndex.bind(db)).to.throw(Error);
+    before(function(done) {
+      recreateDb(dbName, done);
     });
 
-    it('should throw an error if table name if not specified', function() {
-      expect(db.createIndexesIfNotExist.bind(db, config.rethinkdb.db)).to.throw(Error);
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
     });
 
-    it('should throw an error if index data if not specified', function() {
-      expect(db.createIndexesIfNotExist.bind(db, config.rethinkdb.db, config.app.tables[randomTableId])).to.throw(Error);
+    it('should be rejected with an error if database name if not specified', function() {
+      db.createIndex().should.be.rejectedWith(Error);
     });
 
-    it('should throw an error if index data is not an Array', function() {
-      expect(db.createIndexesIfNotExist.bind(db, config.rethinkdb.db, config.app.tables[randomTableId], 'TEST')).to.throw(Error);
+    it('should be rejected with an error if table name if not specified', function() {
+      db.createIndexesIfNotExist(dbName).should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if index data if not specified', function() {
+      db.createIndexesIfNotExist(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
+    });
+
+    it('should be rejected with an error if index data is not an Array', function() {
+      db.createIndexesIfNotExist(dbName, tables[randomTableId], 'TEST').should.be.rejectedWith(Error);
     });
 
     it('should create indexes and return true if they do not exist', function(done) {
-      var indexesLength = null;
-      db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames)
+      var curIndexNames = indexNames.slice(0, 2);
+      var curIndexData = indexes[randomTableId].slice(0, 2);
+      db.indexesExist(dbName, tables[randomTableId], curIndexNames)
         .then(function(results) {
           results.should.be.Array;
-          indexesLength = results.length;
-          results.should.not.have.length(0);
-          return db.createIndexesIfNotExist(config.rethinkdb.db, config.app.tables[randomTableId], config.app.indexes[randomTableId]);
+          results.should.have.length(0);
+          return db.createIndexesIfNotExist(dbName, tables[randomTableId], curIndexData);
         })
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(config.app.indexes[randomTableId].length - indexesLength);
-          return db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          results.should.have.length(curIndexNames.length);
+          return db.indexesExist(dbName, tables[randomTableId], curIndexNames);
         })
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(indexNames.length);
+          results.should.have.length(curIndexNames.length);
           done();
         })
         .catch(done);
     });
 
     it('should create indexes and return if they exist', function(done) {
-      db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames)
+      var indexesInDb = null;
+      db.indexesExist(dbName, tables[randomTableId], indexNames)
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(indexNames.length);
-          return db.createIndexesIfNotExist(config.rethinkdb.db, config.app.tables[randomTableId], config.app.indexes[randomTableId]);
+          indexesInDb = results.length;
+          return db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId]);
         })
         .then(function(results) {
           results.should.be.Array;
-          results.should.have.length(0);
-          return db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          results.should.have.length(indexNames.length - indexesInDb);
+          return db.indexesExist(dbName, tables[randomTableId], indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -883,34 +1285,29 @@ describe('Database Layer', function() {
   describe('migrate', function() {
     this.timeout(10000);
     before(function(done) {
-      db.dropDbIfExists(config.rethinkdb.db)
-        .then(function(result) {
-          done();
-        })
-        .catch(done);
+      dropDb(dbName, done);
     });
 
     it('should migrate database with provided configuration', function(done) {
-      var randomTableId = Object.keys(config.app.indexes)[0];
-      var indexNames = config.app.indexes[randomTableId].map(function(indexData) { return indexData.name; });
-      db.migrate(config.rethinkdb.db, config.app.tables, config.app.indexes)
+      db.migrate(dbName, tables, indexes)
         .then(function(result) {
-          result.should.be.true;
-          return db.dbsExist(config.rethinkdb.db);
+          mustBeTrue(result);
+          return db.dbsExist(dbName);
 
         })
         .then(function(result) {
           result.should.be.Array;
           result.should.have.length(1);
-          result.should.contain(config.rethinkdb.db);
-          return db.tablesExist(config.rethinkdb.db, tableNames);
+          result.should.contain(dbName);
+          return db.tablesExist(dbName, tableNames);
         })
         .then(function(results) {
+          results.should.be.Array;
           results.should.have.length(tableNames.length);
           results.forEach(function(result) {
             tableNames.should.contain(result);
           });
-          return db.indexesExist(config.rethinkdb.db, config.app.tables[randomTableId], indexNames);
+          return db.indexesExist(dbName, tables[randomTableId], indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -926,52 +1323,42 @@ describe('Database Layer', function() {
 
   describe('Model', function() {
     this.timeout(10000);
-    var UrlModel = db.Model(db.r, config.rethinkdb.db, tableNames[0]);
-    var objects = [
-      { id: 1, url: 'http://saini.co.in/', post_id: 121, created_at: Date.now(), updated_at: Date.now() },
-      { id: 2, url: 'http://gofedora.com/', post_id: 4213, created_at: null, updated_at: Date.now() },
-      { id: 'acd', url: 'http://example.com/example.html', post_id: 1, created_at: Date.now(), updated_at: Date.now() },
-      { id: 'AFED', url: '', post_id: 2, created_at: Date.now(), updated_at: Date.now() },
-      { id: 'AF39Fdcew_asdf-s29', url: null, post_id: 1, created_at: Date.now(), updated_at: null },
-      { id: null, url: 'http://4bo.net', post_id: null },
-      { url: 'http://google.com/', created_at: null, updated_at: null },
-      { id: 'fear', url: 'http://google.co/', post_id: 123, created_at: null, updated_at: null },
-      { id: 'bounty-hunder', url: 'http://google.io/', post_id: 200, created_at: null, updated_at: null },
-      { id: 'bonty-hunder2', url: 'http://goog.io/', created_at: null, updated_at: null },
-      { id: '_bonty-hunder2', url: 'http://goog.io/', created_at: null, updated_at: null }
-    ];
 
     before(function(done) {
-      db.migrate(config.rethinkdb.db, config.app.tables, config.app.indexes)
+      recreateDb(dbName, done);
+    });
+
+    before(function(done) {
+      recreateTables(dbName, tableNames, done);
+    });
+
+    before(function(done) {
+      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
         .then(function(result) {
           done();
         })
         .catch(done);
     });
 
-    before(function(done) {
-      UrlModel.create(objects)
-        .then(function(result) {
-          done();
-        })
-        .catch(done);
+    it('should be rejected with an error when rethinkdbdash instance is not specified', function() {
+      db.Model().should.be.rejectedWith(Error);
     });
 
-    it('should throw an error when rethinkdbdash instance is not specified', function() {
-      expect(db.Model.bind(db)).to.throw(Error);
+    it('should be rejected with an error when database name is not specified', function() {
+      db.Model(db.r).should.be.rejectedWith(Error);
     });
 
-    it('should throw an error when database name is not specified', function() {
-      expect(db.Model.bind(db, db.r)).to.throw(Error);
-    });
-
-    it('should throw an error when table name is not specified', function() {
-      expect(db.Model.bind(db, db.r, config.rethinkdb.db)).to.throw(Error);
+    it('should be rejected with an error when table name is not specified', function() {
+      db.Model(db.r, dbName).should.be.rejectedWith(Error);
     });
 
     describe('find', function() {
-      it('should not throw an error when id is not specified', function(done) {
-        expect(UrlModel.find.bind(UrlModel)).to.not.throw(Error);
+      before(function(done) {
+        resetTables(dbName, urlTable, done);
+      });
+
+      it('should not be rejected with an error when id is not specified', function(done) {
+        UrlModel.find().should.not.be.rejectedWith(Error);
         UrlModel.find()
           .then(function(result) {
             should.not.exist(result);
@@ -982,8 +1369,12 @@ describe('Database Layer', function() {
       });
 
       it('should find a document with given id', function(done) {
-        var object = objects[0];
-        UrlModel.find(object.id)
+        var object = Factory.build('url');
+        UrlModel.create(object)
+          .then(function(result) {
+            mustBeTrue(result.inserted === 1);
+            return UrlModel.find(object.id);
+          })
           .then(function(result) {
             result.should.be.Object;
             result.should.be.eql(object);
@@ -1004,18 +1395,32 @@ describe('Database Layer', function() {
     });
 
     describe('findAll', function() {
-      it('should throw an error when fields are not specified', function() {
-        expect(UrlModel.findAll.bind(UrlModel)).to.throw(Error);
+      var objects = getRandomObjects();
+
+      before(function(done) {
+        resetTables(dbName, urlTable, done);
       });
 
-      it('should throw an error when index is not specified', function() {
-        expect(UrlModel.findAll.bind(UrlModel, 'url')).to.throw(Error);
+      before(function(done) {
+        UrlModel.create(objects)
+          .then(function(results) {
+            done();
+          })
+          .catch(done);
       });
 
-      it('should throw an error when search field is null', function() {
-        expect(UrlModel.findAll.bind(UrlModel, null, 'url')).to.throw(Error);
-        expect(UrlModel.findAll.bind(UrlModel, null, 'id')).to.throw(Error);
-        expect(UrlModel.findAll.bind(UrlModel, null, 'post_id')).to.throw(Error);
+      it('should be rejected with an error when fields are not specified', function() {
+        UrlModel.findAll().should.be.rejectedWith(Error);
+      });
+
+      it('should be rejected with an error when index is not specified', function() {
+        UrlModel.findAll('url').should.be.rejectedWith(Error);
+      });
+
+      it('should be rejected with an error when search field is null', function() {
+        UrlModel.findAll(null, 'url').should.be.rejectedWith(Error);
+        UrlModel.findAll(null, 'id').should.be.rejectedWith(Error);
+        UrlModel.findAll(null, 'post_id').should.be.rejectedWith(Error);
       });
 
       it('should be able to fetch document with primary key', function(done) {
@@ -1024,45 +1429,54 @@ describe('Database Layer', function() {
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(1);
-            var result = results[0];
-            result.should.be.eql(object);
+            results[0].should.be.eql(object);
             done();
           })
           .catch(done);
       });
 
       it('should fetch documents with multiple primary keys', function(done) {
+        var id1 = objects[0].id;
+        var id2 = objects[1].id;
+        var totalIds = objects.filter(function(object) {
+          return object.id === id1 || object.id === id2;
+        }).length;
+
         UrlModel.findAll(objects[0].id, objects[1].id, 'id')
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(2);
-            results.should.contain(objects[0]);
-            results.should.contain(objects[1]);
+            results.should.have.length(totalIds);
             done();
           })
           .catch(done);
       });
 
       it('should be able to fetch document with a single secondary index', function(done) {
-        var object = objects[1];
-        UrlModel.findAll(object.url, 'url')
+        var url = objects[1].url;
+        var totalUrls = objects.filter(function(object) {
+          return object.url === url;
+        }).length;
+
+        UrlModel.findAll(url, 'url')
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(1);
-            var result = results[0];
-            result.should.be.eql(object);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
       });
 
       it('should be able to fetch documents with multiple values of a secondary index', function(done) {
-        UrlModel.findAll(objects[2].url, objects[3].url, 'url')
+        var url1 = objects[2].url;
+        var url2 = objects[3].url;
+        var totalUrls = objects.filter(function(object) {
+          return object.url === url1 || object.url === url2;
+        }).length;
+
+        UrlModel.findAll(url1, url2, 'url')
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(2);
-            results.should.contain(objects[2]);
-            results.should.contain(objects[3]);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
@@ -1074,8 +1488,7 @@ describe('Database Layer', function() {
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(1);
-            var result = results[0];
-            result.should.be.eql(object);
+            results[0].should.be.eql(object);
             done();
           })
           .catch(done);
@@ -1093,74 +1506,91 @@ describe('Database Layer', function() {
           .catch(done);
       });
 
-      it('should throw an error with compound index containing null field', function() {
+      it('should be rejected with an error with compound index containing null field', function() {
         UrlModel.findAll(['http://saini.co.in/', null], 'url_and_post_id').should.be.rejectedWith(Error);
         UrlModel.findAll([null, 1], 'url_and_post_id').should.be.rejectedWith(Error);
       });
     });
 
     describe('filter', function() {
-      it('should throw an error when predicate is not specified', function() {
-        expect(UrlModel.filter.bind(UrlModel)).to.throw(Error);
+      var objects = getRandomObjects();
+
+      before(function(done) {
+        resetTables(dbName, urlTable, done);
+      });
+
+      before(function(done) {
+        UrlModel.create(objects)
+          .then(function(results) {
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be rejected with an error when predicate is not specified', function() {
+        UrlModel.filter().should.be.rejectedWith(Error);
       });
 
       it('should fetch documents when a predicate is specified as ReQL', function(done) {
+        var totalUrls = objects.filter(function(object) {
+          return object.post_id > 100;
+        }).length;
         UrlModel.filter(db.r.row('post_id').gt(100))
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(4);
-            results.should.contain(objects[0]);
-            results.should.contain(objects[1]);
-            results.should.contain(objects[7]);
-            results.should.contain(objects[8]);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
       });
 
       it('should fetch documents when a predicate is specified as object', function(done) {
-        UrlModel.filter({ post_id: 1 })
+        var totalUrls = objects.filter(function(object) {
+          return object.post_id === objects[1].post_id;
+        }).length;
+        UrlModel.filter({ post_id: objects[1].post_id })
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(2);
-            results.should.contain(objects[2]);
-            results.should.contain(objects[4]);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
       });
 
       it('should fetch documents when a predicate is specified as function', function(done) {
-        UrlModel.filter(function(url) { return url('post_id').eq(2); })
+        var totalUrls = objects.filter(function(object) {
+          return object.post_id === objects[2].post_id;
+        }).length;
+        UrlModel.filter(function(url) { return url('post_id').eq(objects[2].post_id); })
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(1);
-            results.should.contain(objects[3]);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
       });
 
       it('should fetch documents when a predicate is specified as ReQL', function(done) {
-        UrlModel.filter(db.r.row('post_id').gt(100).and(db.r.row('post_id').lt(150)))
+        var totalUrls = objects.filter(function(object) {
+          return object.post_id > 100 && object.post_id < 200;
+        }).length;
+        UrlModel.filter(db.r.row('post_id').gt(100).and(db.r.row('post_id').lt(200)))
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(2);
-            results.should.contain(objects[0]);
-            results.should.contain(objects[7]);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
       });
 
       it('should fetch documents when a predicate is specified as ReQL', function(done) {
+        var totalUrls = objects.filter(function(object) {
+          return object.post_id < 100;
+        }).length;
         UrlModel.filter(db.r.row('post_id').lt(100))
           .then(function(results) {
             results.should.be.Array;
-            results.should.have.length(3);
-            results.should.contain(objects[2]);
-            results.should.contain(objects[3]);
-            results.should.contain(objects[4]);
+            results.should.have.length(totalUrls);
             done();
           })
           .catch(done);
@@ -1189,12 +1619,26 @@ describe('Database Layer', function() {
     });
 
     describe('update', function() {
-      it('should throw an error if id is not specified', function() {
-        expect(UrlModel.update.bind(UrlModel)).to.throw(Error);
+      var objects = getRandomObjects();
+
+      before(function(done) {
+        resetTables(dbName, urlTable, done);
       });
 
-      it('should throw an error if updates object is not specified', function() {
-        expect(UrlModel.update.bind(UrlModel, 1)).to.throw(Error);
+      before(function(done) {
+        UrlModel.create(objects)
+          .then(function(results) {
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be rejected with an error if id is not specified', function() {
+        UrlModel.update().should.be.rejectedWith(Error);
+      });
+
+      it('should be rejected with an error if updates object is not specified', function() {
+        UrlModel.update(1).should.be.rejectedWith(Error);
       });
 
       it('should update a document using an object', function(done) {
@@ -1235,8 +1679,22 @@ describe('Database Layer', function() {
     });
 
     describe('destroy', function() {
-      it('should throw an error if id is not specified', function() {
-        expect(UrlModel.destroy.bind(UrlModel)).to.throw(Error);
+      var objects = getRandomObjects();
+
+      before(function(done) {
+        resetTables(dbName, urlTable, done);
+      });
+
+      before(function(done) {
+        UrlModel.create(objects)
+          .then(function(results) {
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should be rejected with an error if id is not specified', function() {
+        UrlModel.destroy().should.be.rejectedWith(Error);
       });
 
       it('should destroy a document with an id', function(done) {
@@ -1244,6 +1702,11 @@ describe('Database Layer', function() {
           .then(function(result) {
             result.deleted.should.be.Number;
             result.deleted.should.be.equal(1);
+            return UrlModel.find(objects[9].id);
+          })
+          .then(function(result) {
+            should.not.exist(result);
+            expect(result).to.be.null;
             done();
           })
           .catch(done);
@@ -1263,122 +1726,177 @@ describe('Database Layer', function() {
     });
 
     describe('destroyAll', function() {
+      var objects = getRandomObjects();
+
       before(function(done) {
-        db.resetTable(config.rethinkdb.db, tableNames[0])
-          .then(function(result) {
-            return UrlModel.create(objects);
-          })
-          .then(function(result) {
+        resetTables(dbName, urlTable, done);
+      });
+
+      before(function(done) {
+        UrlModel.create(objects)
+          .then(function(results) {
             done();
           })
           .catch(done);
       });
 
-      it('should throw an error when fields are not specified', function() {
-        expect(UrlModel.destroyAll.bind(UrlModel)).to.throw(Error);
+      it('should be rejected with an error when fields are not specified', function() {
+        UrlModel.destroyAll().should.be.rejectedWith(Error);
       });
 
-      it('should throw an error when index is not specified', function() {
-        expect(UrlModel.destroyAll.bind(UrlModel, 'url')).to.throw(Error);
+      it('should be rejected with an error when index is not specified', function() {
+        UrlModel.destroyAll('url').should.be.rejectedWith(Error);
       });
 
-      it('should throw an error when search field is null', function() {
-        expect(UrlModel.destroyAll.bind(UrlModel, null, 'url')).to.throw(Error);
-        expect(UrlModel.destroyAll.bind(UrlModel, null, 'id')).to.throw(Error);
-        expect(UrlModel.destroyAll.bind(UrlModel, null, 'post_id')).to.throw(Error);
+      it('should be rejected with an error when search field is null', function() {
+        UrlModel.destroyAll(null, 'url').should.be.rejectedWith(Error);
+        UrlModel.destroyAll(null, 'id').should.be.rejectedWith(Error);
+        UrlModel.destroyAll(null, 'post_id').should.be.rejectedWith(Error);
       });
 
       it('should be able to destroy document with primary key', function(done) {
-        var object = objects[9];
-        UrlModel.destroyAll(object.id, 'id')
+        var id = objects[0].id;
+        var totalUrls = objects.filter(function(object) {
+          return object.id === id;
+        }).length;
+        UrlModel.destroyAll(id, 'id')
           .then(function(results) {
             results.deleted.should.be.Number;
-            results.deleted.should.be.equal(1);
+            results.deleted.should.be.equal(totalUrls);
+            return UrlModel.find(id);
+          })
+          .then(function(result) {
+            should.not.exist(result);
+            expect(result).to.be.null;
             done();
           })
           .catch(done);
       });
 
       it('should destroy documents with multiple primary keys', function(done) {
-        UrlModel.destroyAll(objects[8].id, objects[7].id, 'id')
+        var id1 = objects[1].id;
+        var id2 = objects[2].id;
+        var totalUrls = objects.filter(function(object) {
+          return object.id === id1 || object.id === id2;
+        }).length;
+        UrlModel.destroyAll(id1, id2, 'id')
           .then(function(results) {
             results.deleted.should.be.Number;
-            results.deleted.should.be.equal(2);
+            results.deleted.should.be.equal(totalUrls);
+            return UrlModel.findAll(id1, id2, 'id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(0);
             done();
           })
           .catch(done);
       });
 
-      it('should be able to fetch document with a single secondary index', function(done) {
-        var object = objects[6];
-        UrlModel.destroyAll(object.url, 'url')
+      it('should destroy document with a single secondary index', function(done) {
+        var url = objects[3].url;
+        var totalUrls = objects.filter(function(object) {
+          return object.url === url;
+        }).length;
+        UrlModel.destroyAll(url, 'url')
           .then(function(results) {
             results.deleted.should.be.Number;
-            results.deleted.should.be.equal(1);
+            results.deleted.should.be.equal(totalUrls);
+            return UrlModel.find(objects[3].id);
+          })
+          .then(function(result) {
+            should.not.exist(result);
+            expect(result).to.be.null;
             done();
           })
           .catch(done);
       });
 
-      it('should be able to fetch documents with multiple values of a secondary index', function(done) {
-        UrlModel.destroyAll(objects[4].post_id, objects[3].post_id, 'post_id')
+      it('should destroy documents with multiple values of a secondary index', function(done) {
+        var pid1 = objects[4].post_id;
+        var pid2 = objects[5].post_id;
+        var totalUrls = objects.filter(function(object) {
+          return object.post_id === pid1 || object.post_id === pid2;
+        }).length;
+        UrlModel.destroyAll(pid1, pid2, 'post_id')
           .then(function(results) {
             results.deleted.should.be.Number;
-            results.deleted.should.be.equal(3);
+            results.deleted.should.be.equal(totalUrls);
+            return UrlModel.findAll(pid1, pid2, 'post_id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(0);
             done();
           })
           .catch(done);
       });
 
       it('should be able to fetch documents with compound index', function(done) {
-        var object = objects[2];
+        var object = objects[6];
         UrlModel.destroyAll([object.url, object.post_id], 'url_and_post_id')
           .then(function(results) {
             results.deleted.should.be.Number;
-            results.deleted.should.be.equal(0);
+            results.deleted.should.be.equal(1);
+            return UrlModel.findAll([object.url, object.post_id], 'url_and_post_id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(0);
             done();
           })
           .catch(done);
       });
 
       it('should be able to fetch documents with multiple values of a compound index', function(done) {
-        UrlModel.destroyAll([objects[1].url, objects[1].post_id], [objects[0].url, objects[0].post_id], 'url_and_post_id')
+        UrlModel.destroyAll([objects[7].url, objects[7].post_id], [objects[8].url, objects[8].post_id], 'url_and_post_id')
           .then(function(results) {
             results.deleted.should.be.Number;
             results.deleted.should.be.equal(2);
+            return UrlModel.findAll([objects[7].url, objects[7].post_id], [objects[8].url, objects[8].post_id], 'url_and_post_id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(0);
             done();
           })
           .catch(done);
       });
 
       it('should destroy document with rethinkdb options', function(done) {
-        UrlModel.destroyAll(objects[10].url, 'url', { durability: 'hard' })
+        var url = objects[9].url;
+        var totalUrls = objects.filter(function(object) {
+          return object.url === url;
+        }).length;
+        UrlModel.destroyAll(url, 'url', { durability: 'hard' })
           .then(function(results) {
             results.deleted.should.be.Number;
-            results.deleted.should.be.equal(1);
-
+            results.deleted.should.be.equal(totalUrls);
+            return UrlModel.find(objects[9].id);
+          })
+          .then(function(result) {
+            should.not.exist(result);
+            expect(result).to.be.null;
             done();
           })
           .catch(done);
       });
-
     });
 
     describe('create', function() {
+      var objects = getRandomObjects();
+
       before(function(done) {
-        db.resetTable(config.rethinkdb.db, tableNames[0])
-          .then(function(result) {
-            done();
-          })
-          .catch(done);
+        resetTables(dbName, urlTable, done);
       });
 
-      it('should throw an error if objects are not specified', function() {
-        expect(UrlModel.create.bind(UrlModel)).to.throw(Error);
+      it('should be rejected with an error if objects are not specified', function() {
+        UrlModel.create().should.be.rejectedWith(Error);
       });
 
       it('should not insert an object with id set as null', function(done) {
-        var object = objects[5];
+        var object = objects[0];
+        object.id = null;
         UrlModel.create(object)
           .then(function(result) {
             result.inserted.should.be.Number;
@@ -1389,21 +1907,31 @@ describe('Database Layer', function() {
       });
 
       it('should insert when a single object is passed', function(done) {
-        UrlModel.create(objects[0])
+        UrlModel.create(objects[1])
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(1);
+            return UrlModel.find(objects[1].id);
+          })
+          .then(function(result) {
+            result.should.be.Object;
+            result.should.be.eql(objects[1]);
             done();
           })
           .catch(done);
       });
 
       it('should insert an arbitrary number of object passed', function(done) {
-        var newObjects = [objects[1], objects[2], objects[9]];
+        var newObjects = [objects[2], objects[3], objects[4]];
         UrlModel.create(newObjects)
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(newObjects.length);
+            return UrlModel.findAll(objects[2].id, objects[3].id, objects[4].id, 'id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(newObjects.length);
             done();
           })
           .catch(done);
@@ -1419,12 +1947,45 @@ describe('Database Layer', function() {
           .catch(done);
       });
 
+      it('should not insert an arbitrary number of object passed whose ids already exist in table', function(done) {
+        var newObjects = [objects[2], objects[3], objects[4]];
+        UrlModel.create(newObjects)
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(0);
+            done();
+          })
+          .catch(done);
+      });
+
       it('should insert documents whose ids are not already present in the table', function(done) {
-        var newObjects = [objects[4], objects[2], objects[9], objects[5]];
+        var newObjects = [objects[2], objects[3], objects[5], objects[6]];
+        UrlModel.create(newObjects)
+          .then(function(result) {
+            result.inserted.should.be.Number;
+            result.inserted.should.be.equal(2);
+            return UrlModel.findAll(objects[2].id, objects[3].id, objects[5].id, objects[6].id, 'id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(newObjects.length);
+            done();
+          })
+          .catch(done);
+      });
+
+      it('should insert documents whose ids are not already present in the table or whose ids are null', function(done) {
+        var newObjects = [objects[5], objects[6], objects[7], objects[8]];
+        newObjects[2].id = null;
         UrlModel.create(newObjects)
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(1);
+            return UrlModel.findAll(objects[5].id, objects[6].id, objects[8].id, 'id');
+          })
+          .then(function(results) {
+            results.should.be.Array;
+            results.should.have.length(newObjects.length - 1);
             done();
           })
           .catch(done);

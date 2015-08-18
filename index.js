@@ -84,7 +84,7 @@ function dbsExist(dbNames) {
  */
 function createDb(dbName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.dbCreate(dbName).run()
@@ -106,7 +106,7 @@ function createDb(dbName) {
  */
 function dropDb(dbName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.dbDrop(dbName).run()
@@ -128,7 +128,7 @@ function dropDb(dbName) {
  */
 function createDbIfNotExists(dbName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     dbExists(dbName)
@@ -149,7 +149,7 @@ function createDbIfNotExists(dbName) {
  */
 function createDbsIfNotExist(dbNames) {
   if (!dbNames) {
-    throw(new Error('No database names specified'));
+    return Promise.reject(new Error('No database names specified'));
   }
 
   if (!(dbNames instanceof Array)) {
@@ -230,7 +230,7 @@ function dropDbsIfExist(dbNames) {
  */
 function resetDb(dbName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     getTableList(dbName)
@@ -251,7 +251,7 @@ function resetDb(dbName) {
  */
 function getTableList(dbName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.db(dbName).tableList().run()
@@ -274,7 +274,7 @@ function getTableList(dbName) {
  */
 function tableExists(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     getTableList(dbName)
@@ -298,7 +298,7 @@ function tableExists(dbName, tableName) {
  */
 function tablesExist(dbName, tableNames) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
 
   if (!tableNames) {
@@ -333,10 +333,10 @@ function tablesExist(dbName, tableNames) {
  */
 function createTable(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.db(dbName).tableCreate(tableName).run()
@@ -359,10 +359,10 @@ function createTable(dbName, tableName) {
  */
 function dropTable(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.db(dbName).tableDrop(tableName).run()
@@ -385,10 +385,10 @@ function dropTable(dbName, tableName) {
  */
 function createTableIfNotExists(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
     tableExists(dbName, tableName)
@@ -410,10 +410,10 @@ function createTableIfNotExists(dbName, tableName) {
  */
 function createTablesIfNotExist(dbName, tableNames) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableNames) {
-    throw(new Error('Table names not specified'));
+    return Promise.reject(new Error('Table names not specified'));
   }
 
   if (!(tableNames instanceof Array)) {
@@ -447,7 +447,7 @@ function createTablesIfNotExist(dbName, tableNames) {
  */
 function dropTableIfExists(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   return new Promise(function(resolve, reject) {
     tableExists(dbName, tableName)
@@ -469,10 +469,10 @@ function dropTableIfExists(dbName, tableName) {
  */
 function dropTablesIfExist(dbName, tableNames) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableNames) {
-    return Promise.resolve();
+    return Promise.resolve([]);
   }
 
   if (!(tableNames instanceof Array)) {
@@ -503,10 +503,10 @@ function dropTablesIfExist(dbName, tableNames) {
  */
 function resetTable(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.db(dbName).table(tableName).delete().run()
@@ -529,10 +529,10 @@ function resetTable(dbName, tableName) {
  */
 function resetTables(dbName, tableNames) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableNames) {
-    throw(new Error('Table names not specified'));
+    return Promise.reject(new Error('Table names not specified'));
   }
 
   if (!(tableNames instanceof Array)) {
@@ -557,20 +557,13 @@ function resetTables(dbName, tableNames) {
  */
 function getIndexList(dbName, tableName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
-    tableExists(dbName, tableName)
-      .then(function(result) {
-        if (result) {
-          return r.db(dbName).table(tableName).indexList().run();
-        } else {
-          return Promise.resolve([]);
-        }
-      })
+    r.db(dbName).table(tableName).indexList().run()
       .then(function(indexNames) {
         debug('Total indexes on table', tableName, 'in database', dbName, indexNames.length);
         resolve(indexNames);
@@ -591,10 +584,10 @@ function getIndexList(dbName, tableName) {
  */
 function indexExists(dbName, tableName, indexName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   return new Promise(function(resolve, reject) {
     getIndexList(dbName, tableName)
@@ -609,10 +602,10 @@ function indexExists(dbName, tableName, indexName) {
 
 function indexesExist(dbName, tableName, indexNames) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexNames) {
     return Promise.resolve([]);
@@ -648,13 +641,13 @@ function indexesExist(dbName, tableName, indexNames) {
  */
 function createIndex(dbName, tableName, indexName, columns) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexName) {
-    throw(new Error('Index name not specified'));
+    return Promise.reject(new Error('Index name not specified'));
   }
 
   var indexCreateQuery = r.db(dbName).table(tableName);
@@ -697,13 +690,13 @@ function createIndex(dbName, tableName, indexName, columns) {
  */
 function dropIndex(dbName, tableName, indexName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexName) {
-    throw(new Error('Index name not specified'));
+    return Promise.reject(new Error('Index name not specified'));
   }
   return new Promise(function(resolve, reject) {
     r.db(dbName).table(tableName).indexDrop(indexName).run()
@@ -728,13 +721,13 @@ function dropIndex(dbName, tableName, indexName) {
  */
 function createIndexIfNotExists(dbName, tableName, indexName, columns) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexName) {
-    throw(new Error('Index name not specified'));
+    return Promise.reject(new Error('Index name not specified'));
   }
   return new Promise(function(resolve, reject) {
     indexExists(dbName, tableName, indexName)
@@ -757,16 +750,16 @@ function createIndexIfNotExists(dbName, tableName, indexName, columns) {
  */
 function createIndexesIfNotExist(dbName, tableName, indexData) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexData) {
-    throw(new Error('Index data not specified'));
+    return Promise.reject(new Error('Index data not specified'));
   }
   if (!(indexData instanceof Array)) {
-    throw(new Error('Index data should be an array'));
+    return Promise.reject(new Error('Index data should be an array'));
   }
 
   var indexNames = indexData.map(function(index) { return index.name; });
@@ -798,10 +791,10 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
  */
 function dropIndexIfExists(dbName, tableName, indexName) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexName) {
     return Promise.resolve(true);
@@ -827,10 +820,10 @@ function dropIndexIfExists(dbName, tableName, indexName) {
  */
 function dropIndexesIfExist(dbName, tableName, indexNames) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
   if (!indexNames) {
     return Promise.resolve([]);
@@ -882,13 +875,13 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
  */
 function migrate(dbName, tableData, indexData) {
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableData) {
-    throw(new Error('Table data not specified'));
+    return Promise.reject(new Error('Table data not specified'));
   }
   if (!indexData) {
-    throw(new Error('Index data not specified'));
+    return Promise.reject(new Error('Index data not specified'));
   }
 
   var tableNames = Object.keys(tableData).map(function(tableId) { return tableData[tableId]; });
@@ -931,13 +924,13 @@ function migrate(dbName, tableData, indexData) {
  */
 function Model(r, dbName, tableName) {
   if (!r) {
-    throw(new Error('Rethinkdb instance required for generating queries'));
+    return Promise.reject(new Error('Rethinkdb instance required for generating queries'));
   }
   if (!dbName) {
-    throw(new Error('Database name not specified'));
+    return Promise.reject(new Error('Database name not specified'));
   }
   if (!tableName) {
-    throw(new Error('Table name not specified'));
+    return Promise.reject(new Error('Table name not specified'));
   }
 
   /**
@@ -1020,18 +1013,18 @@ function Model(r, dbName, tableName) {
     }
 
     if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
-      throw(new Error('Search fields not specified'));
+      return Promise.reject(new Error('Search fields not specified'));
     }
     if (!indexName) {
-      throw(new Error('Index name not specified'));
+      return Promise.reject(new Error('Index name not specified'));
     }
 
     if (fields instanceof Array) {
-      fields.forEach(function(field) {
-        if (field !== 0 && field !== '' && !field) {
-          throw(new Error('Search field must be either a number, string, bool, pseudotype or array'));
+      for(var i = 0; i < fields.length; i ++) {
+        if (fields[i] !== 0 && fields[i] !== '' && !fields[i]) {
+          return Promise.reject(new Error('Search field must be either a number, string, bool, pseudotype or array'));
         }
-      });
+      }
     }
 
     return new Promise(function(resolve, reject) {
@@ -1054,7 +1047,7 @@ function Model(r, dbName, tableName) {
    */
   function filter(predicate, options) {
     if (!predicate) {
-      throw(new Error('Predicate not specified'));
+      return Promise.reject(new Error('Predicate not specified'));
     }
 
     return new Promise(function(resolve, reject) {
@@ -1078,7 +1071,7 @@ function Model(r, dbName, tableName) {
    */
   function create(objects, options) {
     if (!objects) {
-      throw(new Error('Documents not specified'));
+      return Promise.reject(new Error('Documents not specified'));
     }
 
     //FIXME If we ever have a sane Object.clone implementation we should
@@ -1117,10 +1110,10 @@ function Model(r, dbName, tableName) {
    */
   function update(id, updates, options) {
     if (!id) {
-      throw(new Error('Document id not specified'));
+      return Promise.reject(new Error('Document id not specified'));
     }
     if (!updates) {
-      throw(new Error('Document updates not specified'));
+      return Promise.reject(new Error('Document updates not specified'));
     }
 
     //FIXME If we ever have a sane Object.clone implementation we should
@@ -1146,7 +1139,7 @@ function Model(r, dbName, tableName) {
    */
   function destroy(id, options) {
     if (!id) {
-      throw(new Error('Document id not specified'));
+      return Promise.reject(new Error('Document id not specified'));
     }
 
     return new Promise(function(resolve, reject) {
@@ -1188,18 +1181,18 @@ function Model(r, dbName, tableName) {
     }
 
     if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
-      throw(new Error('Search fields not specified'));
+      return Promise.reject(new Error('Search fields not specified'));
     }
     if (!indexName) {
-      throw(new Error('Index name not specified'));
+      return Promise.reject(new Error('Index name not specified'));
     }
 
     if (fields instanceof Array) {
-      fields.forEach(function(field) {
-        if (field !== 0 && field !== '' && !field) {
-          throw(new Error('Search field must be either a number, string, bool, pseudotype or array'));
+      for(var i = 0; i < fields.length; i ++) {
+        if (fields[i] !== 0 && fields[i] !== '' && !fields[i]) {
+          return Promise.reject(new Error('Search field must be either a number, string, bool, pseudotype or array'));
         }
-      });
+      }
     }
 
     return new Promise(function(resolve, reject) {
@@ -1230,6 +1223,9 @@ function Model(r, dbName, tableName) {
   }
 
   return {
+    r: r,
+    dbName: dbName,
+    tableName: tableName,
     find: find,
     findAll: findAll,
     filter: filter,
