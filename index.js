@@ -1223,6 +1223,9 @@ function Model(r, dbName, tableName) {
   }
 
   return {
+    r: r,
+    dbName: dbName,
+    tableName: tableName,
     find: find,
     findAll: findAll,
     filter: filter,
