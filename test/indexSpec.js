@@ -151,7 +151,7 @@ describe('Database Layer', function() {
   var urlTable = tableNames[0];
   var UrlModel = db.Model(db.r, dbName, urlTable);
 
-  this.timeout(5000);
+  this.timeout(20000);
 
   before(function(done) {
     dropDb(dbName, done);
@@ -1283,7 +1283,6 @@ describe('Database Layer', function() {
   });
 
   describe('migrate', function() {
-    this.timeout(10000);
     before(function(done) {
       dropDb(dbName, done);
     });
@@ -1322,8 +1321,6 @@ describe('Database Layer', function() {
   });
 
   describe('Model', function() {
-    this.timeout(10000);
-
     before(function(done) {
       recreateDb(dbName, done);
     });
