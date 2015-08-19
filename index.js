@@ -1224,6 +1224,7 @@ function Model(r, dbName, tableName) {
 
   return {
     r: r,
+    table: table,
     dbName: dbName,
     tableName: tableName,
     find: find,
