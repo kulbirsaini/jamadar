@@ -1,6 +1,7 @@
 /*jshint expr: true*/
 'use strict';
 
+var _ = require('lodash');
 var chai = require('chai');
 chai.config.includeStack = true;
 chai.config.showDiff = true;
@@ -51,26 +52,22 @@ chai.use(chaiAsPromised);
 
 Factory.define('url')
   .attr('url', function() { return getRandomUrl(); })
-  .attr('post_id', function() { return randomIntFromInterval(1, 1000); })
+  .attr('post_id', function() { return _.random(1, 1000); })
   .attr('created_at', function() { return Date.now(); })
   .attr('updated_at', function() { return Date.now(); })
-  .attr('id', function() { return randomIntFromInterval(1, 10000); });
-
-function randomIntFromInterval(min, max) {
-  return Math.floor(Math.random()*(max - min + 1) + min);
-}
+  .attr('id', function() { return _.random(1, 10000); });
 
 function getRandomUrl() {
-  return urls[randomIntFromInterval(0, urlLength - 1)];
+  return urls[_.random(0, urlLength - 1)];
 }
 
 function getRandomObjects() {
-  var num = randomIntFromInterval(10, 20);
+  var num = _.random(10, 20);
   var objects = [];
   var object = null;
   for (var i = 0; i < num; i++) {
     object = Factory.build('url');
-    object.url = object.url + '/' + randomIntFromInterval(0, 1000);
+    object.url = object.url + '/' + _.random(0, 1000);
     objects.push(object);
   }
   return objects;
