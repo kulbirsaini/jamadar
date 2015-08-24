@@ -149,7 +149,7 @@ describe('Database Layer', function() {
   var randomTableId = Object.keys(indexes)[0];
   var indexNames = indexes[randomTableId].map(function(indexData) { return indexData.name; });
   var urlTable = tableNames[0];
-  var UrlModel = db.Model(db.r, dbName, urlTable);
+  var UrlModel = db.Model(db.r, dbName, urlTable).model;
 
   this.timeout(20000);
 
@@ -1337,40 +1337,33 @@ describe('Database Layer', function() {
         .catch(done);
     });
 
-    it('should be rejected with an error when rethinkdbdash instance is not specified', function() {
+    it('should throw an error when rethinkdbdash instance is not specified', function() {
       db.Model().should.be.rejectedWith(Error);
     });
 
-    it('should be rejected with an error when database name is not specified', function() {
+    it('should throw an error when database name is not specified', function() {
       db.Model(db.r).should.be.rejectedWith(Error);
     });
 
-    it('should be rejected with an error when table name is not specified', function() {
+    it('should throw an error when table name is not specified', function() {
       db.Model(db.r, dbName).should.be.rejectedWith(Error);
     });
 
-    describe('find', function() {
+    describe('get', function() {
       before(function(done) {
         resetTables(dbName, urlTable, done);
       });
 
-      it('should not be rejected with an error when id is not specified', function(done) {
-        UrlModel.find().should.not.be.rejectedWith(Error);
-        UrlModel.find()
-          .then(function(result) {
-            should.not.exist(result);
-            expect(result).to.be.null;
-            done();
-          })
-          .catch(done);
+      it('should throw an error when id is not specified', function() {
+        expect(function (){ UrlModel.get().run(); }).to.throw(Error);
       });
 
       it('should find a document with given id', function(done) {
         var object = Factory.build('url');
-        UrlModel.create(object)
+        UrlModel.insert(object).run()
           .then(function(result) {
             mustBeTrue(result.inserted === 1);
-            return UrlModel.find(object.id);
+            return UrlModel.get(object.id).run();
           })
           .then(function(result) {
             result.should.be.Object;
@@ -1381,7 +1374,7 @@ describe('Database Layer', function() {
       });
 
       it('should return null for a document that does not exist', function(done) {
-        UrlModel.find('asdfasdfasdfasdfasdfasdf')
+        UrlModel.get('asdfasdfasdfasdfasdfasdf').run()
           .then(function(result) {
             should.not.exist(result);
             expect(result).to.be.null;
@@ -1391,7 +1384,7 @@ describe('Database Layer', function() {
       });
     });
 
-    describe('findAll', function() {
+    describe('getAll', function() {
       var objects = getRandomObjects();
 
       before(function(done) {
@@ -1399,30 +1392,26 @@ describe('Database Layer', function() {
       });
 
       before(function(done) {
-        UrlModel.create(objects)
+        UrlModel.insert(objects).run()
           .then(function(results) {
             done();
           })
           .catch(done);
       });
 
-      it('should be rejected with an error when fields are not specified', function() {
-        UrlModel.findAll().should.be.rejectedWith(Error);
+      it('should throw an error when fields are not specified', function() {
+        expect(function() { UrlModel.getAll().run(); }).to.throw(Error);
       });
 
-      it('should be rejected with an error when index is not specified', function() {
-        UrlModel.findAll('url').should.be.rejectedWith(Error);
-      });
-
-      it('should be rejected with an error when search field is null', function() {
-        UrlModel.findAll(null, 'url').should.be.rejectedWith(Error);
-        UrlModel.findAll(null, 'id').should.be.rejectedWith(Error);
-        UrlModel.findAll(null, 'post_id').should.be.rejectedWith(Error);
+      it('should throw an error when search field is null', function() {
+        UrlModel.getAll(null, { index: 'url' }).run().should.be.rejectedWith(Error);
+        UrlModel.getAll(null, { index: 'id' }).run().should.be.rejectedWith(Error);
+        UrlModel.getAll(null, { index: 'post_id' }).run().should.be.rejectedWith(Error);
       });
 
       it('should be able to fetch document with primary key', function(done) {
         var object = objects[0];
-        UrlModel.findAll(object.id, 'id')
+        UrlModel.getAll(object.id, {index: 'id' }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(1);
@@ -1439,7 +1428,7 @@ describe('Database Layer', function() {
           return object.id === id1 || object.id === id2;
         }).length;
 
-        UrlModel.findAll(objects[0].id, objects[1].id, 'id')
+        UrlModel.getAll(objects[0].id, objects[1].id, { index: 'id' }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalIds);
@@ -1454,7 +1443,7 @@ describe('Database Layer', function() {
           return object.url === url;
         }).length;
 
-        UrlModel.findAll(url, 'url')
+        UrlModel.getAll(url, { index: 'url' }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1470,7 +1459,7 @@ describe('Database Layer', function() {
           return object.url === url1 || object.url === url2;
         }).length;
 
-        UrlModel.findAll(url1, url2, 'url')
+        UrlModel.getAll(url1, url2, { index: 'url' }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1481,7 +1470,7 @@ describe('Database Layer', function() {
 
       it('should be able to fetch documents with compound index', function(done) {
         var object = objects[2];
-        UrlModel.findAll([object.url, object.post_id], 'url_and_post_id')
+        UrlModel.getAll([object.url, object.post_id], { index: 'url_and_post_id' }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(1);
@@ -1492,7 +1481,7 @@ describe('Database Layer', function() {
       });
 
       it('should be able to fetch documents with multiple values of a compound index', function(done) {
-        UrlModel.findAll([objects[1].url, objects[1].post_id], [objects[3].url, objects[3].post_id], 'url_and_post_id')
+        UrlModel.getAll([objects[1].url, objects[1].post_id], [objects[3].url, objects[3].post_id], { index: 'url_and_post_id' }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(2);
@@ -1503,9 +1492,9 @@ describe('Database Layer', function() {
           .catch(done);
       });
 
-      it('should be rejected with an error with compound index containing null field', function() {
-        UrlModel.findAll(['http://saini.co.in/', null], 'url_and_post_id').should.be.rejectedWith(Error);
-        UrlModel.findAll([null, 1], 'url_and_post_id').should.be.rejectedWith(Error);
+      it('should throw an error with compound index containing null field', function() {
+        UrlModel.getAll(['http://saini.co.in/', null], { index: 'url_and_post_id' }).run().should.be.rejectedWith(Error);
+        UrlModel.getAll([null, 1], { index: 'url_and_post_id' }).run().should.be.rejectedWith(Error);
       });
     });
 
@@ -1517,22 +1506,22 @@ describe('Database Layer', function() {
       });
 
       before(function(done) {
-        UrlModel.create(objects)
+        UrlModel.insert(objects).run()
           .then(function(results) {
             done();
           })
           .catch(done);
       });
 
-      it('should be rejected with an error when predicate is not specified', function() {
-        UrlModel.filter().should.be.rejectedWith(Error);
+      it('should throw an error when predicate is not specified', function() {
+        expect(function() { UrlModel.filter().run(); }).to.throw(Error);
       });
 
       it('should fetch documents when a predicate is specified as ReQL', function(done) {
         var totalUrls = objects.filter(function(object) {
           return object.post_id > 100;
         }).length;
-        UrlModel.filter(db.r.row('post_id').gt(100))
+        UrlModel.filter(db.r.row('post_id').gt(100)).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1545,7 +1534,7 @@ describe('Database Layer', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id === objects[1].post_id;
         }).length;
-        UrlModel.filter({ post_id: objects[1].post_id })
+        UrlModel.filter({ post_id: objects[1].post_id }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1558,7 +1547,7 @@ describe('Database Layer', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id === objects[2].post_id;
         }).length;
-        UrlModel.filter(function(url) { return url('post_id').eq(objects[2].post_id); })
+        UrlModel.filter(function(url) { return url('post_id').eq(objects[2].post_id); }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1571,7 +1560,7 @@ describe('Database Layer', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id > 100 && object.post_id < 200;
         }).length;
-        UrlModel.filter(db.r.row('post_id').gt(100).and(db.r.row('post_id').lt(200)))
+        UrlModel.filter(db.r.row('post_id').gt(100).and(db.r.row('post_id').lt(200))).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1584,7 +1573,7 @@ describe('Database Layer', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id < 100;
         }).length;
-        UrlModel.filter(db.r.row('post_id').lt(100))
+        UrlModel.filter(db.r.row('post_id').lt(100)).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1595,7 +1584,7 @@ describe('Database Layer', function() {
 
       //It's a valid query but can't fetch nothing
       it('should fetch documents when a predicate is specified as ReQL', function(done) {
-        UrlModel.filter(db.r.row('post_id').eq(null))
+        UrlModel.filter(db.r.row('post_id').eq(null)).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(0);
@@ -1605,7 +1594,7 @@ describe('Database Layer', function() {
       });
 
       it('should fetch documents when a predicate is specified as object', function(done) {
-        UrlModel.filter({ post_id: null })
+        UrlModel.filter({ post_id: null }).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(0);
@@ -1615,286 +1604,21 @@ describe('Database Layer', function() {
       });
     });
 
-    describe('update', function() {
+    describe('insert', function() {
       var objects = getRandomObjects();
 
       before(function(done) {
         resetTables(dbName, urlTable, done);
       });
 
-      before(function(done) {
-        UrlModel.create(objects)
-          .then(function(results) {
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should be rejected with an error if id is not specified', function() {
-        UrlModel.update().should.be.rejectedWith(Error);
-      });
-
-      it('should be rejected with an error if updates object is not specified', function() {
-        UrlModel.update(1).should.be.rejectedWith(Error);
-      });
-
-      it('should update a document using an object', function(done) {
-        var object = objects[0];
-        var updated_at = object.updated_at;
-        UrlModel.update(object.id, { post_id: 1201 })
-          .then(function(result) {
-            result.replaced.should.be.Number;
-            result.replaced.should.be.equal(1);
-            return UrlModel.find(object.id);
-          })
-          .then(function(result) {
-            result.post_id.should.not.be.equal(object.post_id);
-            result.post_id.should.be.equal(1201);
-            result.updated_at.should.be.gt(updated_at);
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should update a document using a ReQL expression', function(done) {
-        var object = objects[1];
-        var updated_at = object.updated_at;
-        UrlModel.update(object.id, { post_id: db.r.row('post_id').add(1) })
-          .then(function(result) {
-            result.replaced.should.be.Number;
-            result.replaced.should.be.equal(1);
-            return UrlModel.find(object.id);
-          })
-          .then(function(result) {
-            result.post_id.should.not.be.equal(object.post_id);
-            result.post_id.should.be.equal(object.post_id + 1);
-            result.updated_at.should.be.gt(updated_at);
-            done();
-          })
-          .catch(done);
-      });
-    });
-
-    describe('destroy', function() {
-      var objects = getRandomObjects();
-
-      before(function(done) {
-        resetTables(dbName, urlTable, done);
-      });
-
-      before(function(done) {
-        UrlModel.create(objects)
-          .then(function(results) {
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should be rejected with an error if id is not specified', function() {
-        UrlModel.destroy().should.be.rejectedWith(Error);
-      });
-
-      it('should destroy a document with an id', function(done) {
-        UrlModel.destroy(objects[9].id)
-          .then(function(result) {
-            result.deleted.should.be.Number;
-            result.deleted.should.be.equal(1);
-            return UrlModel.find(objects[9].id);
-          })
-          .then(function(result) {
-            should.not.exist(result);
-            expect(result).to.be.null;
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should not destroy a document with an id that is not in that database', function(done) {
-        UrlModel.destroy('asdfasdfasdfasdfasdfasdf')
-          .then(function(result) {
-            result.deleted.should.be.Number;
-            result.deleted.should.be.equal(0);
-            result.skipped.should.be.Number;
-            result.skipped.should.be.equal(1);
-            done();
-          })
-          .catch(done);
-      });
-    });
-
-    describe('destroyAll', function() {
-      var objects = getRandomObjects();
-
-      before(function(done) {
-        resetTables(dbName, urlTable, done);
-      });
-
-      before(function(done) {
-        UrlModel.create(objects)
-          .then(function(results) {
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should be rejected with an error when fields are not specified', function() {
-        UrlModel.destroyAll().should.be.rejectedWith(Error);
-      });
-
-      it('should be rejected with an error when index is not specified', function() {
-        UrlModel.destroyAll('url').should.be.rejectedWith(Error);
-      });
-
-      it('should be rejected with an error when search field is null', function() {
-        UrlModel.destroyAll(null, 'url').should.be.rejectedWith(Error);
-        UrlModel.destroyAll(null, 'id').should.be.rejectedWith(Error);
-        UrlModel.destroyAll(null, 'post_id').should.be.rejectedWith(Error);
-      });
-
-      it('should be able to destroy document with primary key', function(done) {
-        var id = objects[0].id;
-        var totalUrls = objects.filter(function(object) {
-          return object.id === id;
-        }).length;
-        UrlModel.destroyAll(id, 'id')
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(totalUrls);
-            return UrlModel.find(id);
-          })
-          .then(function(result) {
-            should.not.exist(result);
-            expect(result).to.be.null;
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should destroy documents with multiple primary keys', function(done) {
-        var id1 = objects[1].id;
-        var id2 = objects[2].id;
-        var totalUrls = objects.filter(function(object) {
-          return object.id === id1 || object.id === id2;
-        }).length;
-        UrlModel.destroyAll(id1, id2, 'id')
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(totalUrls);
-            return UrlModel.findAll(id1, id2, 'id');
-          })
-          .then(function(results) {
-            results.should.be.Array;
-            results.should.have.length(0);
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should destroy document with a single secondary index', function(done) {
-        var url = objects[3].url;
-        var totalUrls = objects.filter(function(object) {
-          return object.url === url;
-        }).length;
-        UrlModel.destroyAll(url, 'url')
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(totalUrls);
-            return UrlModel.find(objects[3].id);
-          })
-          .then(function(result) {
-            should.not.exist(result);
-            expect(result).to.be.null;
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should destroy documents with multiple values of a secondary index', function(done) {
-        var pid1 = objects[4].post_id;
-        var pid2 = objects[5].post_id;
-        var totalUrls = objects.filter(function(object) {
-          return object.post_id === pid1 || object.post_id === pid2;
-        }).length;
-        UrlModel.destroyAll(pid1, pid2, 'post_id')
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(totalUrls);
-            return UrlModel.findAll(pid1, pid2, 'post_id');
-          })
-          .then(function(results) {
-            results.should.be.Array;
-            results.should.have.length(0);
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should be able to fetch documents with compound index', function(done) {
-        var object = objects[6];
-        UrlModel.destroyAll([object.url, object.post_id], 'url_and_post_id')
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(1);
-            return UrlModel.findAll([object.url, object.post_id], 'url_and_post_id');
-          })
-          .then(function(results) {
-            results.should.be.Array;
-            results.should.have.length(0);
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should be able to fetch documents with multiple values of a compound index', function(done) {
-        UrlModel.destroyAll([objects[7].url, objects[7].post_id], [objects[8].url, objects[8].post_id], 'url_and_post_id')
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(2);
-            return UrlModel.findAll([objects[7].url, objects[7].post_id], [objects[8].url, objects[8].post_id], 'url_and_post_id');
-          })
-          .then(function(results) {
-            results.should.be.Array;
-            results.should.have.length(0);
-            done();
-          })
-          .catch(done);
-      });
-
-      it('should destroy document with rethinkdb options', function(done) {
-        var url = objects[9].url;
-        var totalUrls = objects.filter(function(object) {
-          return object.url === url;
-        }).length;
-        UrlModel.destroyAll(url, 'url', { durability: 'hard' })
-          .then(function(results) {
-            results.deleted.should.be.Number;
-            results.deleted.should.be.equal(totalUrls);
-            return UrlModel.find(objects[9].id);
-          })
-          .then(function(result) {
-            should.not.exist(result);
-            expect(result).to.be.null;
-            done();
-          })
-          .catch(done);
-      });
-    });
-
-    describe('create', function() {
-      var objects = getRandomObjects();
-
-      before(function(done) {
-        resetTables(dbName, urlTable, done);
-      });
-
-      it('should be rejected with an error if objects are not specified', function() {
-        UrlModel.create().should.be.rejectedWith(Error);
+      it('should throw an error if objects are not specified', function() {
+        expect(function(){ UrlModel.insert().run(); }).to.throw(Error);
       });
 
       it('should not insert an object with id set as null', function(done) {
         var object = objects[0];
         object.id = null;
-        UrlModel.create(object)
+        UrlModel.insert(object).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(0);
@@ -1904,11 +1628,11 @@ describe('Database Layer', function() {
       });
 
       it('should insert when a single object is passed', function(done) {
-        UrlModel.create(objects[1])
+        UrlModel.insert(objects[1]).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(1);
-            return UrlModel.find(objects[1].id);
+            return UrlModel.get(objects[1].id).run();
           })
           .then(function(result) {
             result.should.be.Object;
@@ -1920,11 +1644,11 @@ describe('Database Layer', function() {
 
       it('should insert an arbitrary number of object passed', function(done) {
         var newObjects = [objects[2], objects[3], objects[4]];
-        UrlModel.create(newObjects)
+        UrlModel.insert(newObjects).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(newObjects.length);
-            return UrlModel.findAll(objects[2].id, objects[3].id, objects[4].id, 'id');
+            return UrlModel.getAll(objects[2].id, objects[3].id, objects[4].id, {index: 'id' }).run();
           })
           .then(function(results) {
             results.should.be.Array;
@@ -1935,7 +1659,7 @@ describe('Database Layer', function() {
       });
 
       it('should not insert an object whose id already exists in table', function(done) {
-        UrlModel.create(objects[0])
+        UrlModel.insert(objects[0]).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(0);
@@ -1946,7 +1670,7 @@ describe('Database Layer', function() {
 
       it('should not insert an arbitrary number of object passed whose ids already exist in table', function(done) {
         var newObjects = [objects[2], objects[3], objects[4]];
-        UrlModel.create(newObjects)
+        UrlModel.insert(newObjects).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(0);
@@ -1957,11 +1681,11 @@ describe('Database Layer', function() {
 
       it('should insert documents whose ids are not already present in the table', function(done) {
         var newObjects = [objects[2], objects[3], objects[5], objects[6]];
-        UrlModel.create(newObjects)
+        UrlModel.insert(newObjects).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(2);
-            return UrlModel.findAll(objects[2].id, objects[3].id, objects[5].id, objects[6].id, 'id');
+            return UrlModel.getAll(objects[2].id, objects[3].id, objects[5].id, objects[6].id, { index: 'id' }).run();
           })
           .then(function(results) {
             results.should.be.Array;
@@ -1974,11 +1698,11 @@ describe('Database Layer', function() {
       it('should insert documents whose ids are not already present in the table or whose ids are null', function(done) {
         var newObjects = [objects[5], objects[6], objects[7], objects[8]];
         newObjects[2].id = null;
-        UrlModel.create(newObjects)
+        UrlModel.insert(newObjects).run()
           .then(function(result) {
             result.inserted.should.be.Number;
             result.inserted.should.be.equal(1);
-            return UrlModel.findAll(objects[5].id, objects[6].id, objects[8].id, 'id');
+            return UrlModel.getAll(objects[5].id, objects[6].id, objects[8].id, { index: 'id' }).run();
           })
           .then(function(results) {
             results.should.be.Array;
@@ -1991,7 +1715,7 @@ describe('Database Layer', function() {
 
     describe('sync', function() {
       it('should sync table', function(done) {
-        UrlModel.sync()
+        UrlModel.sync().run()
           .then(function(result) {
             result.synced.should.be.Number;
             result.synced.should.be.equal(1);

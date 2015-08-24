@@ -636,10 +636,10 @@ function indexesExist(dbName, tableName, indexNames) {
  * @param {String} dbName Database name
  * @param {String} tableName Table name
  * @param {String} indexName Index name
- * @param {Array[String]} columns Array of index names
+ * @param {Function} fn An optional function describing index
  * @return {Promise} Returns a promise resolved on successful creation of index and rejected on error
  */
-function createIndex(dbName, tableName, indexName, columns) {
+function createIndex(dbName, tableName, indexName, fn) {
   if (!dbName) {
     return Promise.reject(new Error('Database name not specified'));
   }
@@ -651,11 +651,8 @@ function createIndex(dbName, tableName, indexName, columns) {
   }
 
   var indexCreateQuery = r.db(dbName).table(tableName);
-  if (columns) {
-    columns = columns.map(function(column) {
-      return r.row(column);
-    });
-    indexCreateQuery = indexCreateQuery.indexCreate(indexName, columns);
+  if (fn) {
+    indexCreateQuery = indexCreateQuery.indexCreate(indexName, fn);
   } else {
     indexCreateQuery = indexCreateQuery.indexCreate(indexName);
   }
@@ -716,10 +713,10 @@ function dropIndex(dbName, tableName, indexName) {
  * @param {String} dbName Database name
  * @param {String} tableName Table name
  * @param {String} indexName Index name
- * @param {Array[String]} columns Array of index names
+ * @param {Function} fn An optional function describing index
  * @return {Promise} Returns a promise resolved on successful creation/existence of index and rejected on error
  */
-function createIndexIfNotExists(dbName, tableName, indexName, columns) {
+function createIndexIfNotExists(dbName, tableName, indexName, fn) {
   if (!dbName) {
     return Promise.reject(new Error('Database name not specified'));
   }
@@ -732,7 +729,7 @@ function createIndexIfNotExists(dbName, tableName, indexName, columns) {
   return new Promise(function(resolve, reject) {
     indexExists(dbName, tableName, indexName)
       .then(function(indexFound) {
-        return indexFound ? resolve(indexFound) : resolve(createIndex(dbName, tableName, indexName, columns));
+        return indexFound ? resolve(indexFound) : resolve(createIndex(dbName, tableName, indexName, fn));
       })
       .catch(reject);
   });
@@ -745,7 +742,17 @@ function createIndexIfNotExists(dbName, tableName, indexName, columns) {
  * @method createIndexesIfNotExist
  * @param {String} dbName Database name
  * @param {String} tableName Table name
- * @param {Array} indexData Array containing individual index data. Example: [ { name: 'field1' }, { name: 'field2' }, { name: 'field1_and_field2', columns: ['field1', 'field2'] }, ...]
+ * @param {Array} indexData Array containing individual index data.
+ *    Example: [
+ *      { name: 'field1' },
+ *      { name: 'field2' },
+ *      { name: 'field1_and_field2',
+ *        fn: function(row) {
+ *          return [row('field1'), row('field2')];
+ *        }
+ *      },
+ *      ...
+ *      ]
  * @return {Promise} Returns a promise resolved on successful creation/existence of indexes and rejected on error
  */
 function createIndexesIfNotExist(dbName, tableName, indexData) {
@@ -771,7 +778,7 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
           return indexesFound.indexOf(index.name) < 0;
         });
         resolve(Promise.map(indexesToCreate, function(indexData) {
-            return createIndex(dbName, tableName, indexData.name, indexData.columns);
+            return createIndex(dbName, tableName, indexData.name, indexData.fn);
           }, { concurrency: 1 })
         );
       })
@@ -943,298 +950,12 @@ function Model(r, dbName, tableName) {
     return r.db(dbName).table(tableName);
   }
 
-  /**
-   * Get a rethinkdb query selecting an entry with id.
-   * Ref: http://rethinkdb.com/api/javascript/get/
-   *
-   * @method get
-   * @param {String|Integer} id Primary key for the document
-   * @return {Query} A rethinkdb query
-   */
-  function get(id) {
-    return table().get(id);
-  }
-
-  /**
-   * Get a rethinkdb query selecting a field or multiple fields.
-   * A secondary index is a must for these queries.
-   * Ref: http://rethinkdb.com/api/javascript/get_all/
-   *
-   * @method getAll
-   * @param {String|Array} fields A single field as string or an array of fields.
-   * @param {String} indexName A secondary index corresponding to the field or a compound index in case of multiple fields.
-   * @return {Query} A rethinkdb query
-   */
-  function getAll(fields, indexName) {
-    return table().getAll(r.args(fields), { index: indexName });
-  }
-
-  /**
-   * Find an entry with a given id (primary key).
-   * Ref: http://rethinkdb.com/api/javascript/get/
-   *
-   * @method find
-   * @param {String|Integer} id Primary key for the table
-   * @return {Promise} A promise resolved on successful find and rejected on error
-   */
-  function find(id) {
-    if (!id) {
-      return Promise.resolve(null);
-    }
-
-    return new Promise(function(resolve, reject) {
-      get(id).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Find all entries corresponding to the given fields.
-   * A secondary index is a must for these queries.
-   * Ref: http://rethinkdb.com/api/javascript/get_all/
-   *
-   * @method findAll
-   * @param {String|Array} fields A single field as string or an array of fields.
-   * @param {String} indexName A secondary index corresponding to the field or a compound index in case of multiple fields.
-   * @return {Promise} A promise resolved on successful find and rejected on error
-   */
-  function findAll() {
-    var args = Array.prototype.slice.call(arguments);
-    var fields = [];
-    var indexName = null;
-    if (args.length === 1) {
-      fields = args;
-    } else {
-      fields = args.slice(0, args.length - 1);
-      indexName = args.slice(args.length - 1)[0];
-    }
-
-    if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
-      return Promise.reject(new Error('Search fields not specified'));
-    }
-    if (!indexName) {
-      return Promise.reject(new Error('Index name not specified'));
-    }
-
-    if (fields instanceof Array) {
-      for(var i = 0; i < fields.length; i ++) {
-        if (fields[i] !== 0 && fields[i] !== '' && !fields[i]) {
-          return Promise.reject(new Error('Search field must be either a number, string, bool, pseudotype or array'));
-        }
-      }
-    }
-
-    return new Promise(function(resolve, reject) {
-      getAll(fields, indexName).run()
-        .then(function(results) {
-          resolve(results);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Filters entries as per the predicate provided.
-   * Ref: http://rethinkdb.com/api/javascript/filter/
-   *
-   * @method filter
-   * @param {Object|Function} predicate A predicate as per http://rethinkdb.com/api/javascript/filter/
-   * @param {Object} options Optional arguments valid for filter query
-   * @return {Promise} A promise resolved on successful filter and rejected on error
-   */
-  function filter(predicate, options) {
-    if (!predicate) {
-      return Promise.reject(new Error('Predicate not specified'));
-    }
-
-    return new Promise(function(resolve, reject) {
-      table().filter(predicate, options || {}).run()
-        .then(function(results) {
-          resolve(results);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Inserts an object or objects into the table.
-   * Automatically inserts created_at and updated_at timestamps if not provided with object(s).
-   * Ref: http://rethinkdb.com/api/javascript/insert/
-   *
-   * @method create
-   * @param {Object|Array} objects An object or array or objects to be inserted
-   * @param {Object} options Optional arguments valid for insert query
-   * @return {Promise} Returns a promise resolved on successful insert and rejected on error
-   */
-  function create(objects, options) {
-    if (!objects) {
-      return Promise.reject(new Error('Documents not specified'));
-    }
-
-    //FIXME If we ever have a sane Object.clone implementation we should
-    //clone objects instead of extending the passed one.
-    var now = Date.now();
-    if (objects instanceof Array) {
-      objects = objects.map(function(object) {
-        object.created_at = object.created_at || now;
-        object.updated_at = object.updated_at || now;
-        return object;
-      });
-    } else {
-      objects.created_at = objects.created_at || now;
-      objects.updated_at = objects.updated_at || now;
-    }
-
-    return new Promise(function(resolve, reject) {
-      table().insert(objects, options || {}).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Updates an object identified by given id.
-   * Automatically updates updated_at timestamp if not provided in updates.
-   * Ref: http://rethinkdb.com/api/javascript/update/
-   *
-   * @method update
-   * @param {String|Integer} id The id of object to update
-   * @param {Object} updates An object describing updates
-   * @param {Object} options Optional arguments valid for update query
-   * @return {Promise} Returns a promise resolved on successful update and rejected on error
-   */
-  function update(id, updates, options) {
-    if (!id) {
-      return Promise.reject(new Error('Document id not specified'));
-    }
-    if (!updates) {
-      return Promise.reject(new Error('Document updates not specified'));
-    }
-
-    //FIXME If we ever have a sane Object.clone implementation we should
-    //clone updates instead of extending the passed one.
-    updates.updated_at = updates.updated_at || Date.now();
-    return new Promise(function(resolve, reject) {
-      get(id).update(updates, options || {}).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Deletes a document identified by given id.
-   * Ref: http://rethinkdb.com/api/javascript/delete/
-   *
-   * @method destroy
-   * @param {String|Integer} id The id of object to update.
-   * @param {Object} options Optional arguments valid for delete query
-   * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
-   */
-  function destroy(id, options) {
-    if (!id) {
-      return Promise.reject(new Error('Document id not specified'));
-    }
-
-    return new Promise(function(resolve, reject) {
-      get(id).delete(options || {}).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Deletes documents identified by given fields.
-   * A secondary index must be supplied for this query to execute.
-   * Ref: http://rethinkdb.com/api/javascript/delete/
-   *
-   * @method destroyAll
-   * @param {String|Array} fields A field or an array of fields to use for find query.
-   * @param {String} indexName An index on the given field or a compound index in case of multiple fields.
-   * @param {Object} options Optional arguments valid for delete query
-   * @return {Promise} Returns a promise resolved on successful deletion and rejected on error
-   */
-  function destroyAll() {
-    var args = Array.prototype.slice.call(arguments);
-    var fields = [];
-    var indexName = null;
-    var lastArg = args[args.length - 1];
-    var options = {};
-
-    if (args.length < 2) {
-      fields = args;
-    } else if (lastArg !== null && typeof(lastArg) === 'object') {
-      fields = args.slice(0, args.length - 2);
-      indexName = args[args.length - 2];
-      options = args[args.length - 1];
-    } else {
-      fields = args.slice(0, args.length - 1);
-      indexName = args.slice(args.length - 1)[0];
-    }
-
-    if (fields.length === 0 || (fields !== 0 && fields !== '' && !fields)) {
-      return Promise.reject(new Error('Search fields not specified'));
-    }
-    if (!indexName) {
-      return Promise.reject(new Error('Index name not specified'));
-    }
-
-    if (fields instanceof Array) {
-      for(var i = 0; i < fields.length; i ++) {
-        if (fields[i] !== 0 && fields[i] !== '' && !fields[i]) {
-          return Promise.reject(new Error('Search field must be either a number, string, bool, pseudotype or array'));
-        }
-      }
-    }
-
-    return new Promise(function(resolve, reject) {
-      getAll(fields, indexName).delete(options || {}).run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
-
-  /**
-   * Sync write on a given table to permanent stoage.
-   * Good idea to execute this query after multiple write queries with soft durability.
-   * Ref: http://rethinkdb.com/api/javascript/sync/
-   *
-   * @method sync
-   * @return {Promise} Returns a promise resolved on successful sync and rejected on error
-   */
-  function sync() {
-    return new Promise(function(resolve, reject) {
-      table().sync().run()
-        .then(function(result) {
-          resolve(result);
-        })
-        .catch(reject);
-    });
-  }
-
   return {
     r: r,
     table: table,
     dbName: dbName,
     tableName: tableName,
-    find: find,
-    findAll: findAll,
-    filter: filter,
-    create: create,
-    update: update,
-    destroy: destroy,
-    destroyAll: destroyAll,
-    sync: sync
+    model: table()
   };
 }
 

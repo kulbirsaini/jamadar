@@ -21,7 +21,7 @@ var config = {
         { name: 'post_id' },
         { name: 'created_at' },
         { name: 'updated_at' },
-        { name: 'url_and_post_id', columns: [ 'url', 'post_id' ] }
+        { name: 'url_and_post_id', fn: function(row) { return [row('url'), row('post_id')]; } }
       ],
       user: [
         { name: 'username' },
