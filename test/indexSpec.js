@@ -146,7 +146,7 @@ describe('Database Layer', function() {
   var randomTableId = Object.keys(indexes)[0];
   var indexNames = indexes[randomTableId].map(function(indexData) { return indexData.name; });
   var urlTable = tableNames[0];
-  var UrlModel = db.Model(db.r, dbName, urlTable).model;
+  var UrlModel = db.Model(dbName, urlTable).model;
 
   this.timeout(20000);
 

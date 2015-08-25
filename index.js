@@ -997,10 +997,8 @@ function migrate(dbName, tables, indexes) {
  * @param {String} tableName The table name
  * @return {Object} Return an object exposing wrappers around ReQL functions.
  */
-function Model(r, dbName, tableName) {
-  if (!r) {
-    return Promise.reject(new Error('Rethinkdb instance required for generating queries'));
-  }
+function Model(dbName, tableName) {
+  var r = dbLayer.singleton.r;
 
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
@@ -1026,7 +1024,7 @@ function Model(r, dbName, tableName) {
   };
 }
 
-function init(dbConfig) {
+function dbLayer(dbConfig) {
   r = rethinkdbdash(dbConfig);
   return {
     r: r,
@@ -1063,6 +1061,13 @@ function init(dbConfig) {
     migrate: migrate,
     Model: Model
   };
+}
+
+function init(dbConfig) {
+  if (!dbLayer.singleton) {
+    dbLayer.singleton = dbLayer(dbConfig);
+  }
+  return dbLayer.singleton;
 }
 
 module.exports = init;
