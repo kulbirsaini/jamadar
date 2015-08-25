@@ -142,7 +142,7 @@ describe('Database Layer', function() {
   var dbName = config.rethinkdb.db;
   var tables = config.app.tables;
   var indexes = config.app.indexes;
-  var tableNames = Object.keys(tables).map(function(tableId) { return tables[tableId]; });
+  var tableNames = _.values(tables);
   var randomTableId = Object.keys(indexes)[0];
   var indexNames = indexes[randomTableId].map(function(indexData) { return indexData.name; });
   var urlTable = tableNames[0];
@@ -609,7 +609,7 @@ describe('Database Layer', function() {
     });
 
     it('should be rejected with an error when table name is not specified', function() {
-      db.dropTableIfExists(dbName).should.not.be.rejectedWith(Error);
+      db.dropTableIfExists(dbName).should.be.fulfilled;
     });
 
     it('should return true if not table name is specified', function(done) {
@@ -669,8 +669,8 @@ describe('Database Layer', function() {
       db.dropTablesIfExist().should.be.rejectedWith(Error);
     });
 
-    it('should not be rejected with an error when table name is not specified', function() {
-      db.dropTablesIfExist(dbName).should.not.be.rejectedWith(Error);
+    it('should not be rejected with an error when table names are not specified', function() {
+      db.dropTablesIfExist(dbName).should.be.resolved;
     });
 
     it('should drop tables if exist', function(done) {
