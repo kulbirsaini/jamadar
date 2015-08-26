@@ -246,11 +246,13 @@ function createDbsIfNotExist(dbNames) {
         var dbsNotFound = dbNames.filter(function(dbName) {
           return dbsFound.indexOf(dbName) < 0;
         });
-        resolve(Promise.all(
-          dbsNotFound.map(function(dbName) {
-            return createDb(dbName);
-          })
-        ));
+        resolve(
+          Promise.all(
+            dbsNotFound.map(function(dbName) {
+              return createDb(dbName);
+            })
+          )
+        );
       })
       .catch(reject);
   });
@@ -292,11 +294,13 @@ function dropDbsIfExist(dbNames) {
   return new Promise(function(resolve, reject) {
     dbsExist(dbNames)
       .then(function(dbsFound) {
-        resolve(Promise.all(
-          dbsFound.map(function(dbName) {
-            return dropDb(dbName);
-          })
-        ));
+        resolve(
+          Promise.all(
+            dbsFound.map(function(dbName) {
+              return dropDb(dbName);
+            })
+          )
+        );
       })
       .catch(reject);
   });
@@ -505,11 +509,13 @@ function createTablesIfNotExist(dbName, tableNames) {
         var tablesNotFound = tableNames.filter(function(tableName) {
           return tablesFound.indexOf(tableName) < 0;
         });
-        resolve(Promise.all(
-          tablesNotFound.map(function(tableName) {
-            return createTable(dbName, tableName);
-          })
-        ));
+        resolve(
+          Promise.all(
+            tablesNotFound.map(function(tableName) {
+              return createTable(dbName, tableName);
+            })
+          )
+        );
       })
       .catch(reject);
   });
@@ -567,11 +573,13 @@ function dropTablesIfExist(dbName, tableNames) {
   return new Promise(function(resolve, reject) {
     tablesExist(dbName, tableNames)
       .then(function(tablesFound) {
-        resolve(Promise.all(
-          tablesFound.map(function(tableName) {
-            return dropTable(dbName, tableName);
-          })
-        ));
+        resolve(
+          Promise.all(
+            tablesFound.map(function(tableName) {
+              return dropTable(dbName, tableName);
+            })
+          )
+        );
       })
       .catch(reject);
   });
@@ -845,9 +853,12 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
         var indexesToCreate = indexData.filter(function(index) {
           return indexesFound.indexOf(index.name) < 0;
         });
-        resolve(Promise.map(indexesToCreate, function(indexData) {
-            return createIndex(dbName, tableName, indexData.name, indexData.fn);
-          }, { concurrency: 1 })
+        resolve(
+          Promise.all(
+            indexesToCreate.map(function(indexData) {
+              return createIndex(dbName, tableName, indexData.name, indexData.fn);
+            })
+          )
         );
       })
       .catch(reject);
@@ -908,9 +919,12 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
   return new Promise(function(resolve, reject) {
     indexesExist(dbName, tableName, indexNames)
       .then(function(indexesFound) {
-        resolve(Promise.map(indexesFound, function(indexName) {
-            return dropIndex(dbName, tableName, indexName);
-          }, { concurrency: 1 })
+        resolve(
+          Promise.all(
+            indexesFound.map(function(indexName) {
+              return dropIndex(dbName, tableName, indexName);
+            })
+          )
         );
       })
       .catch(reject);
