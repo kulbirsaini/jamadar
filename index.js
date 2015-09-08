@@ -2,7 +2,7 @@
 
 var _ = require('lodash');
 var debug = require('debug')('dblayer:index');
-var Promise = require('bluebird');
+var BPromise = require('bluebird');
 var rethinkdbdash = require('rethinkdbdash');
 
 var r = null;
@@ -96,14 +96,11 @@ function verifyArgs(args) {
  * @return {Promise} Returns a promise resolved on successful fetch and rejected on error
  */
 function getDbList() {
-  return new Promise(function(resolve, reject) {
-    r.dbList().run()
-      .then(function(databaseNames) {
-        debug('Total databases', databaseNames.length);
-        resolve(databaseNames);
-      })
-      .catch(reject);
-  });
+  return r.dbList().run()
+    .then(function(databaseNames) {
+      debug('Total databases', databaseNames.length);
+      return databaseNames;
+    });
 }
 
 /*
@@ -115,15 +112,12 @@ function getDbList() {
  * @return {Promise} Returns a promise resolved on successful calcuation and rejected on error
  */
 function dbExists(dbName) {
-  return new Promise(function(resolve, reject) {
-    getDbList()
-      .then(function(databaseNames) {
-        var dbFound = databaseNames.indexOf(dbName) > -1;
-        debug('Database', dbName, 'found?', dbFound);
-        resolve(dbFound);
-      })
-      .catch(reject);
-  });
+  return getDbList()
+    .then(function(databaseNames) {
+      var dbFound = databaseNames.indexOf(dbName) > -1;
+      debug('Database', dbName, 'found?', dbFound);
+      return dbFound;
+    });
 }
 
 /*
@@ -138,20 +132,17 @@ function dbsExist(dbNames) {
   dbNames = toArrayOfStrings(dbNames);
 
   if (!dbNames) {
-    return Promise.resolve([]);
+    return BPromise.resolve([]);
   }
 
-  return new Promise(function(resolve, reject) {
-    getDbList()
-      .then(function(databaseNames) {
-        var dbsFound = dbNames.filter(function(dbName) {
-          return databaseNames.indexOf(dbName) > -1;
-        });
-        debug('Databases found?', dbsFound.length);
-        resolve(dbsFound);
-      })
-      .catch(reject);
-  });
+  return getDbList()
+    .then(function(databaseNames) {
+      var dbsFound = dbNames.filter(function(dbName) {
+        return databaseNames.indexOf(dbName) > -1;
+      });
+      debug('Databases found?', dbsFound.length);
+      return dbsFound;
+    });
 }
 
 /*
@@ -165,17 +156,14 @@ function dbsExist(dbNames) {
 function createDb(dbName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.dbCreate(dbName).run()
-      .then(function(result) {
-        debug('New database', dbName, 'created?', result.dbs_created === 1);
-        resolve(result.dbs_created === 1);
-      })
-      .catch(reject);
-  });
+  return r.dbCreate(dbName).run()
+    .then(function(result) {
+      debug('New database', dbName, 'created?', result.dbs_created === 1);
+      return result.dbs_created === 1;
+    });
 }
 
 /**
@@ -189,17 +177,14 @@ function createDb(dbName) {
 function dropDb(dbName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.dbDrop(dbName).run()
-      .then(function(result) {
-        debug('Database', dbName, 'dropped?', result.dbs_dropped === 1);
-        resolve(result.dbs_dropped === 1);
-      })
-      .catch(reject);
-  });
+  return r.dbDrop(dbName).run()
+    .then(function(result) {
+      debug('Database', dbName, 'dropped?', result.dbs_dropped === 1);
+      return result.dbs_dropped === 1;
+    });
 }
 
 /*
@@ -213,16 +198,13 @@ function dropDb(dbName) {
 function createDbIfNotExists(dbName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    dbExists(dbName)
-      .then(function(dbFound) {
-        return dbFound ? resolve(dbFound) : resolve(createDb(dbName));
-      })
-      .catch(reject);
-  });
+  return dbExists(dbName)
+    .then(function(dbFound) {
+      return dbFound ? dbFound : createDb(dbName);
+    });
 }
 
 /*
@@ -237,25 +219,20 @@ function createDbsIfNotExist(dbNames) {
   dbNames = toArrayOfStrings(dbNames);
   var verified = verifyArgs({ dbNames: dbNames });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    dbsExist(dbNames)
-      .then(function(dbsFound) {
-        var dbsNotFound = dbNames.filter(function(dbName) {
-          return dbsFound.indexOf(dbName) < 0;
-        });
-        resolve(
-          Promise.all(
-            dbsNotFound.map(function(dbName) {
-              return createDb(dbName);
-            })
-          )
-        );
-      })
-      .catch(reject);
-  });
+  return dbsExist(dbNames)
+    .then(function(dbsFound) {
+      var dbsNotFound = dbNames.filter(function(dbName) {
+        return dbsFound.indexOf(dbName) < 0;
+      });
+      return BPromise.all(
+        dbsNotFound.map(function(dbName) {
+          return createDb(dbName);
+        })
+      );
+    });
 }
 
 /*
@@ -267,13 +244,10 @@ function createDbsIfNotExist(dbNames) {
  * @return {Promise} Returns a promise resolved on successful drop and rejected on error
  */
 function dropDbIfExists(dbName) {
-  return new Promise(function(resolve, reject) {
-    dbExists(dbName)
-      .then(function(dbFound) {
-        return dbFound ? resolve(dropDb(dbName)) : resolve(true);
-      })
-      .catch(reject);
-  });
+  return dbExists(dbName)
+    .then(function(dbFound) {
+      return dbFound ? dropDb(dbName) : true;
+    });
 }
 
 /*
@@ -288,22 +262,17 @@ function dropDbsIfExist(dbNames) {
   dbNames = toArrayOfStrings(dbNames);
 
   if (!dbNames) {
-    return Promise.resolve();
+    return BPromise.resolve();
   }
 
-  return new Promise(function(resolve, reject) {
-    dbsExist(dbNames)
-      .then(function(dbsFound) {
-        resolve(
-          Promise.all(
-            dbsFound.map(function(dbName) {
-              return dropDb(dbName);
-            })
-          )
-        );
-      })
-      .catch(reject);
-  });
+  return dbsExist(dbNames)
+    .then(function(dbsFound) {
+      return BPromise.all(
+        dbsFound.map(function(dbName) {
+          return dropDb(dbName);
+        })
+      );
+    });
 }
 
 /*
@@ -317,16 +286,13 @@ function dropDbsIfExist(dbNames) {
 function resetDb(dbName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    getTableList(dbName)
-      .then(function(tableNames) {
-        resolve(resetTables(dbName, tableNames));
-      })
-      .catch(reject);
-  });
+  return getTableList(dbName)
+    .then(function(tableNames) {
+      return resetTables(dbName, tableNames);
+    });
 }
 
 /*
@@ -340,17 +306,14 @@ function resetDb(dbName) {
 function getTableList(dbName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.db(dbName).tableList().run()
-      .then(function(tableNames) {
-        debug('Total tables in database', dbName, tableNames.length);
-        resolve(tableNames);
-      })
-      .catch(reject);
-  });
+  return r.db(dbName).tableList().run()
+    .then(function(tableNames) {
+      debug('Total tables in database', dbName, tableNames.length);
+      return tableNames;
+    });
 }
 
 /*
@@ -365,18 +328,15 @@ function getTableList(dbName) {
 function tableExists(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    getTableList(dbName)
-      .then(function(tableNames) {
-        var tableFound = tableNames.indexOf(tableName) > -1;
-        debug('Table', tableName, 'in database', dbName, 'found?', tableFound);
-        resolve(tableFound);
-      })
-      .catch(reject);
-  });
+  return getTableList(dbName)
+    .then(function(tableNames) {
+      var tableFound = tableNames.indexOf(tableName) > -1;
+      debug('Table', tableName, 'in database', dbName, 'found?', tableFound);
+      return tableFound;
+    });
 }
 
 /*
@@ -391,26 +351,23 @@ function tableExists(dbName, tableName) {
 function tablesExist(dbName, tableNames) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   tableNames = toArrayOfStrings(tableNames);
 
   if (!tableNames) {
-    return Promise.resolve([]);
+    return BPromise.resolve([]);
   }
 
-  return new Promise(function(resolve, reject) {
-    getTableList(dbName)
-      .then(function(tables) {
-        var tablesFound = tableNames.filter(function(tableName) {
-          return tables.indexOf(tableName) > -1;
-        });
-        debug('Tables found in database', dbName, tablesFound.length);
-        resolve(tablesFound);
-      })
-      .catch(reject);
-  });
+  return getTableList(dbName)
+    .then(function(tables) {
+      var tablesFound = tableNames.filter(function(tableName) {
+        return tables.indexOf(tableName) > -1;
+      });
+      debug('Tables found in database', dbName, tablesFound.length);
+      return tablesFound;
+    });
 }
 
 /*
@@ -425,17 +382,14 @@ function tablesExist(dbName, tableNames) {
 function createTable(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.db(dbName).tableCreate(tableName).run()
-      .then(function(result) {
-        debug('Table', tableName, 'in database', dbName, 'created?', result.tables_created === 1);
-        resolve(result.tables_created === 1);
-      })
-      .catch(reject);
-  });
+  return r.db(dbName).tableCreate(tableName).run()
+    .then(function(result) {
+      debug('Table', tableName, 'in database', dbName, 'created?', result.tables_created === 1);
+      return result.tables_created === 1;
+    });
 }
 
 /*
@@ -450,17 +404,14 @@ function createTable(dbName, tableName) {
 function dropTable(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.db(dbName).tableDrop(tableName).run()
-      .then(function(result) {
-        debug('Table', tableName, 'in database', dbName, 'dropped?', result.tables_dropped === 1);
-        resolve(result.tables_dropped === 1);
-      })
-      .catch(reject);
-  });
+  return r.db(dbName).tableDrop(tableName).run()
+    .then(function(result) {
+      debug('Table', tableName, 'in database', dbName, 'dropped?', result.tables_dropped === 1);
+      return result.tables_dropped === 1;
+    });
 }
 
 /*
@@ -475,16 +426,13 @@ function dropTable(dbName, tableName) {
 function createTableIfNotExists(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    tableExists(dbName, tableName)
-      .then(function(tableFound) {
-        return tableFound ? resolve(tableFound) : resolve(createTable(dbName, tableName));
-      })
-      .catch(reject);
-  });
+  return tableExists(dbName, tableName)
+    .then(function(tableFound) {
+      return tableFound ? tableFound : createTable(dbName, tableName);
+    });
 }
 
 /*
@@ -500,25 +448,20 @@ function createTablesIfNotExist(dbName, tableNames) {
   tableNames = toArrayOfStrings(tableNames);
   var verified = verifyArgs({ dbName: dbName, tableNames: tableNames });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    tablesExist(dbName, tableNames)
-      .then(function(tablesFound) {
-        var tablesNotFound = tableNames.filter(function(tableName) {
-          return tablesFound.indexOf(tableName) < 0;
-        });
-        resolve(
-          Promise.all(
-            tablesNotFound.map(function(tableName) {
-              return createTable(dbName, tableName);
-            })
-          )
-        );
-      })
-      .catch(reject);
-  });
+  return tablesExist(dbName, tableNames)
+    .then(function(tablesFound) {
+      var tablesNotFound = tableNames.filter(function(tableName) {
+        return tablesFound.indexOf(tableName) < 0;
+      });
+      return BPromise.all(
+        tablesNotFound.map(function(tableName) {
+          return createTable(dbName, tableName);
+        })
+      );
+    });
 }
 
 /*
@@ -533,20 +476,17 @@ function createTablesIfNotExist(dbName, tableNames) {
 function dropTableIfExists(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   if (!_.isString(tableName)) {
-    return Promise.resolve(true);
+    return BPromise.resolve(true);
   }
 
-  return new Promise(function(resolve, reject) {
-    tableExists(dbName, tableName)
-      .then(function(tableFound) {
-        return tableFound ? resolve(dropTable(dbName, tableName)) : resolve(true);
-      })
-      .catch(reject);
-  });
+  return tableExists(dbName, tableName)
+    .then(function(tableFound) {
+      return tableFound ? dropTable(dbName, tableName) : true;
+    });
 }
 
 /*
@@ -561,28 +501,23 @@ function dropTableIfExists(dbName, tableName) {
 function dropTablesIfExist(dbName, tableNames) {
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   tableNames = toArrayOfStrings(tableNames);
 
   if (!tableNames) {
-    return Promise.resolve([]);
+    return BPromise.resolve([]);
   }
 
-  return new Promise(function(resolve, reject) {
-    tablesExist(dbName, tableNames)
-      .then(function(tablesFound) {
-        resolve(
-          Promise.all(
-            tablesFound.map(function(tableName) {
-              return dropTable(dbName, tableName);
-            })
-          )
-        );
-      })
-      .catch(reject);
-  });
+  return tablesExist(dbName, tableNames)
+    .then(function(tablesFound) {
+      return BPromise.all(
+        tablesFound.map(function(tableName) {
+          return dropTable(dbName, tableName);
+        })
+      );
+    });
 }
 
 /*
@@ -597,17 +532,14 @@ function dropTablesIfExist(dbName, tableNames) {
 function resetTable(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.db(dbName).table(tableName).delete().run()
-      .then(function(result) {
-        debug('Reset table', tableName);
-        resolve(result);
-      })
-      .catch(reject);
-  });
+  return r.db(dbName).table(tableName).delete().run()
+    .then(function(result) {
+      debug('Reset table', tableName);
+      return result;
+    });
 }
 
 /*
@@ -623,10 +555,10 @@ function resetTables(dbName, tableNames) {
   tableNames = toArrayOfStrings(tableNames);
   var verified = verifyArgs({ dbName: dbName, tableNames: tableNames });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return Promise.all(
+  return BPromise.all(
     tableNames.map(function(tableName) {
       return resetTable(dbName, tableName);
     })
@@ -645,17 +577,14 @@ function resetTables(dbName, tableNames) {
 function getIndexList(dbName, tableName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.db(dbName).table(tableName).indexList().run()
-      .then(function(indexNames) {
-        debug('Total indexes on table', tableName, 'in database', dbName, indexNames.length);
-        resolve(indexNames);
-      })
-      .catch(reject);
-  });
+  return r.db(dbName).table(tableName).indexList().run()
+    .then(function(indexNames) {
+      debug('Total indexes on table', tableName, 'in database', dbName, indexNames.length);
+      return indexNames;
+    });
 }
 
 /*
@@ -671,22 +600,19 @@ function getIndexList(dbName, tableName) {
 function indexExists(dbName, tableName, indexName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   if (!_.isString(indexName)) {
-    return Promise.resolve(false);
+    return BPromise.resolve(false);
   }
 
-  return new Promise(function(resolve, reject) {
-    getIndexList(dbName, tableName)
-      .then(function(indexNames) {
-          var indexFound = indexNames.indexOf(indexName) > -1;
-          debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'found?', indexFound);
-          resolve(indexFound);
-      })
-      .catch(reject);
-  });
+  return getIndexList(dbName, tableName)
+    .then(function(indexNames) {
+      var indexFound = indexNames.indexOf(indexName) > -1;
+      debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'found?', indexFound);
+      return indexFound;
+    });
 }
 
 /*
@@ -702,30 +628,27 @@ function indexExists(dbName, tableName, indexName) {
 function indexesExist(dbName, tableName, indexNames) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   indexNames = toArrayOfStrings(indexNames);
 
   if (!indexNames) {
-    return Promise.resolve([]);
+    return BPromise.resolve([]);
   }
 
-  return new Promise(function(resolve, reject) {
-    getIndexList(dbName, tableName)
-      .then(function(indexes) {
-          var indexesFound = indexNames.filter(function(indexName) {
-            return indexes.indexOf(indexName) > -1;
-          });
-          debug('Indexes found in table', tableName, 'in database', dbName, indexesFound.length);
-          resolve(indexesFound);
-      })
-      .catch(reject);
-  });
+  return getIndexList(dbName, tableName)
+    .then(function(indexes) {
+      var indexesFound = indexNames.filter(function(indexName) {
+        return indexes.indexOf(indexName) > -1;
+      });
+      debug('Indexes found in table', tableName, 'in database', dbName, indexesFound.length);
+      return indexesFound;
+    });
 }
 
 /*
- * Creates specified index.
+ * Creates specified index and waits on it.
  * Takes no callback.
  *
  * @method createIndex
@@ -738,7 +661,7 @@ function indexesExist(dbName, tableName, indexNames) {
 function createIndex(dbName, tableName, indexName, fn) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName, indexName: indexName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   var indexCreateQuery = r.db(dbName).table(tableName);
@@ -748,22 +671,19 @@ function createIndex(dbName, tableName, indexName, fn) {
     indexCreateQuery = indexCreateQuery.indexCreate(indexName);
   }
 
-  return new Promise(function(resolve, reject) {
-    indexCreateQuery.run()
-      .then(function(result) {
-        debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'created?', result.created === 1);
-        return r.db(dbName).table(tableName).indexWait(indexName).run();
-      })
-      .then(function(result) {
-        var index = result.filter(function(wait) {
-          return wait.index === indexName;
-        });
-        var indexReady = index.length > 0 && index[0].ready;
-        debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'ready?', indexReady);
-        resolve(indexReady);
-      })
-      .catch(reject);
-  });
+  return indexCreateQuery.run()
+    .then(function(result) {
+      debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'created?', result.created === 1);
+      return r.db(dbName).table(tableName).indexWait(indexName).run();
+    })
+    .then(function(result) {
+      var index = result.filter(function(wait) {
+        return wait.index === indexName;
+      });
+      var indexReady = index.length > 0 && index[0].ready;
+      debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'ready?', indexReady);
+      return indexReady;
+    });
 }
 
 /*
@@ -779,17 +699,14 @@ function createIndex(dbName, tableName, indexName, fn) {
 function dropIndex(dbName, tableName, indexName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName, indexName: indexName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    r.db(dbName).table(tableName).indexDrop(indexName).run()
-      .then(function(result) {
-        debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'dropped?', result.dropped === 1);
-        resolve(result.dropped === 1);
-      })
-      .catch(reject);
-  });
+  return r.db(dbName).table(tableName).indexDrop(indexName).run()
+    .then(function(result) {
+      debug('Index', indexName, 'in table', tableName, 'in database', dbName, 'dropped?', result.dropped === 1);
+      return result.dropped === 1;
+    });
 }
 
 /*
@@ -806,16 +723,13 @@ function dropIndex(dbName, tableName, indexName) {
 function createIndexIfNotExists(dbName, tableName, indexName, fn) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName, indexName: indexName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
-  return new Promise(function(resolve, reject) {
-    indexExists(dbName, tableName, indexName)
-      .then(function(indexFound) {
-        return indexFound ? resolve(indexFound) : resolve(createIndex(dbName, tableName, indexName, fn));
-      })
-      .catch(reject);
-  });
+  return indexExists(dbName, tableName, indexName)
+    .then(function(indexFound) {
+      return indexFound ? indexFound : createIndex(dbName, tableName, indexName, fn);
+    });
 }
 
 /*
@@ -842,27 +756,22 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
   var indexNames = []; // Be paranoid and avoid issues due to variable hoisting
   var verified = verifyArgs({ dbName: dbName, tableName: tableName, indexData: indexData });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   indexNames = indexData.map(function(index) { return index.name; });
 
-  return new Promise(function(resolve, reject) {
-    indexesExist(dbName, tableName, indexNames)
-      .then(function(indexesFound) {
-        var indexesToCreate = indexData.filter(function(index) {
-          return indexesFound.indexOf(index.name) < 0;
-        });
-        resolve(
-          Promise.all(
-            indexesToCreate.map(function(indexData) {
-              return createIndex(dbName, tableName, indexData.name, indexData.fn);
-            })
-          )
-        );
-      })
-      .catch(reject);
-  });
+  return indexesExist(dbName, tableName, indexNames)
+    .then(function(indexesFound) {
+      var indexesToCreate = indexData.filter(function(index) {
+        return indexesFound.indexOf(index.name) < 0;
+      });
+      return BPromise.all(
+        indexesToCreate.map(function(indexData) {
+          return createIndex(dbName, tableName, indexData.name, indexData.fn);
+        })
+      );
+    });
 }
 
 /*
@@ -878,20 +787,17 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
 function dropIndexIfExists(dbName, tableName, indexName) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   if (!_.isString(indexName)) {
-    return Promise.resolve(true);
+    return BPromise.resolve(true);
   }
 
-  return new Promise(function(resolve, reject) {
-    indexExists(dbName, tableName, indexName)
-      .then(function(indexFound) {
-        return indexFound ? resolve(dropIndex(dbName, tableName, indexName)) : resolve(true);
-      })
-      .catch(reject);
-  });
+  return indexExists(dbName, tableName, indexName)
+    .then(function(indexFound) {
+      return indexFound ? dropIndex(dbName, tableName, indexName) : true;
+    });
 }
 
 /*
@@ -907,28 +813,23 @@ function dropIndexIfExists(dbName, tableName, indexName) {
 function dropIndexesIfExist(dbName, tableName, indexNames) {
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   indexNames = toArrayOfStrings(indexNames);
 
   if (!indexNames) {
-    return Promise.resolve([]);
+    return BPromise.resolve([]);
   }
 
-  return new Promise(function(resolve, reject) {
-    indexesExist(dbName, tableName, indexNames)
-      .then(function(indexesFound) {
-        resolve(
-          Promise.all(
-            indexesFound.map(function(indexName) {
-              return dropIndex(dbName, tableName, indexName);
-            })
-          )
-        );
-      })
-      .catch(reject);
-  });
+  return indexesExist(dbName, tableName, indexNames)
+    .then(function(indexesFound) {
+      return BPromise.all(
+        indexesFound.map(function(indexName) {
+          return dropIndex(dbName, tableName, indexName);
+        })
+      );
+    });
 }
 
 /*
@@ -963,42 +864,39 @@ function migrate(dbName, tables, indexes) {
   var tableNames = [];
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   if (!_.isObject(tables)) {
-    return Promise.reject(new Error('Tables not specified or not a valid object'));
+    return BPromise.reject(new Error('Tables not specified or not a valid object'));
   }
   if (!_.isObject(indexes)) {
-    return Promise.reject(new Error('Indexes not specified or not a valid object'));
+    return BPromise.reject(new Error('Indexes not specified or not a valid object'));
   }
 
   tableNames = _.values(tables);
-  return new Promise(function(resolve, reject) {
-    createDbIfNotExists(dbName)
-      .then(function(dbCreatedOrFound) {
-        if (dbCreatedOrFound) {
-          return createTablesIfNotExist(dbName, tableNames);
-        } else {
-          reject(new Error('We dont have a database for unknown reasons'));
-        }
-      })
-      .then(function(tableCreatedOrFound) {
-        if (tableCreatedOrFound) {
-          return Promise.all(
-            Object.keys(indexes).map(function(tableId) {
-              return createIndexesIfNotExist(dbName, tables[tableId], indexes[tableId]);
-            })
-          );
-        } else {
-          reject(new Error('We dont have a database table for unknown reasons'));
-        }
-      })
-      .then(function() {
-        resolve(true);
-      })
-      .catch(reject);
-  });
+  return createDbIfNotExists(dbName)
+    .then(function(dbCreatedOrFound) {
+      if (dbCreatedOrFound) {
+        return createTablesIfNotExist(dbName, tableNames);
+      } else {
+        return BPromise.reject(new Error('We failed to create database for unknown reasons'));
+      }
+    })
+    .then(function(tableCreatedOrFound) {
+      if (tableCreatedOrFound) {
+        return BPromise.all(
+          Object.keys(indexes).map(function(tableId) {
+            return createIndexesIfNotExist(dbName, tables[tableId], indexes[tableId]);
+          })
+        );
+      } else {
+        return BPromise.reject(new Error('We failed to create tables for unknown reasons'));
+      }
+    })
+    .then(function() {
+      return true;
+    });
 }
 
 /**
@@ -1016,7 +914,7 @@ function Model(dbName, tableName) {
 
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
-    return Promise.reject(verified);
+    return BPromise.reject(verified);
   }
 
   /**
