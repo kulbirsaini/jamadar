@@ -83,10 +83,10 @@ function createDb(dbNames, done) {
 
 function dropDb(dbNames, done) {
   db.dropDbsIfExist(dbNames)
-  .then(function(result) {
-    done();
-  })
-  .catch(done);
+    .then(function(result) {
+      done();
+    })
+    .catch(done);
 }
 
 function recreateDb(dbNames, done) {
