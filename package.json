@@ -1,17 +1,22 @@
 {
-  "name": "database-layer",
-  "version": "0.0.1",
-  "description": "Abstract db functionality",
+  "name": "jamadar",
+  "version": "0.1.0",
+  "description": "Simplified database, table and index management functions for rethinkdb",
   "main": "index.js",
-  "private": true,
-  "homepage": "https://bitbucket.org/lolstack/database-layer#readme",
+  "homepage": "https://github.com/kulbirsaini/jamadar",
+  "author": {
+    "name": "Kulbir Saini",
+    "url": "http://github.com/kulbirsaini"
+  },
+  "license": "MIT",
+  "readmeFilename": "README.md",
   "scripts": {
     "pretest": "npm install",
     "test": "NODE_ENV=test mocha $(find test -name '*.js')"
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@bitbucket.org/lolstack/database-layer.git"
+    "url": "https://github.com/kulbirsaini/jamadar.git"
   },
   "dependencies": {
     "bluebird": "^2.9.34",
@@ -29,5 +34,13 @@
     "jshint-stylish": "^2.0.1",
     "mocha": "^2.3.2",
     "rosie": "^1.1.0"
-  }
+  },
+  "keywords": [
+    "rethinkdb",
+    "rethinkdbdash",
+    "migration",
+    "database",
+    "tasks",
+    "model"
+  ]
 }

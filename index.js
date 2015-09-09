@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var debug = require('debug')('dblayer:index');
+var debug = require('debug')('jamadar:index');
 var BPromise = require('bluebird');
 var rethinkdbdash = require('rethinkdbdash');
 
@@ -910,7 +910,7 @@ function migrate(dbName, tables, indexes) {
  * @return {Object} Return an object exposing wrappers around ReQL functions.
  */
 function Model(dbName, tableName) {
-  var r = dbLayer.singleton.r;
+  var r = Jamadar.singleton.r;
 
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
@@ -936,7 +936,7 @@ function Model(dbName, tableName) {
   };
 }
 
-function dbLayer(dbConfig) {
+function Jamadar(dbConfig) {
   r = rethinkdbdash(dbConfig);
   return {
     r: r,
@@ -976,10 +976,10 @@ function dbLayer(dbConfig) {
 }
 
 function init(dbConfig) {
-  if (!dbLayer.singleton) {
-    dbLayer.singleton = dbLayer(dbConfig);
+  if (!Jamadar.singleton) {
+    Jamadar.singleton = Jamadar(dbConfig);
   }
-  return dbLayer.singleton;
+  return Jamadar.singleton;
 }
 
 module.exports = init;

@@ -8,7 +8,7 @@ var config = {
     buffer: 20, //Minimum connections in pool
     max: 100, //Maximum connections in pool
     discovery: false, //Setting to false. It seems to be creating a lot of issues.
-    db: 'database_layer_test_afj928dfas'
+    db: 'jamadar_test_afj928dfas'
   },
   app: {
     tables: {

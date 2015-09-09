@@ -1,24 +1,12 @@
-# Database Layer #
+# Jamadar #
 
-This module provides basic functionality required to setup a database so that we don't have to copy the same files to all of our applications.
+Simplified database, table and index management functions for rethinkdb.
 
 ### How To Install? ###
 
-Directly include in your `package.json`.
-
-```javascript
-{
-  "name": "schedule-consumer",
-  "private": true,
-  "version": "0.0.1",
-  "description": "Consumes scheduled tweets and posts them",
-  "dependencies": {
-    "database-layer": "git@bitbucket.org:lolstack/database-layer.git"
-  }
-}
+```bash
+npm install --save jamadar
 ```
-
-Then fire `npm install`.
 
 ### How To Use? ###
 
@@ -34,51 +22,49 @@ module.exports = {
     ],
     buffer: 20, //Minimum connections in pool
     max: 100, //Maximum connections in pool
-    discovery: true,
+    discovery: false,
     db: 'lolstack_dev'
   },
-  app: {
-    tables: {
-      url: 'urls',
-      user: 'users',
-      network: 'networks',
-      schedule: 'schedules',
-      post: 'posts',
-      picture: 'pictures'
-    },
-    indexes: {
-      user: [
-        { name: 'username' },
-        { name: 'email' }
-      ],
-      url: [
-        { name: 'url' },
-        { name: 'post_id' },
-        { name: 'created_at' },
-        { name: 'updated_at' },
-        { name: 'url_and_post_id', columns: [ 'url', 'post_id' ] }
-      ],
-      network: [
-        { name: 'name' }
-      ],
-      schedule: [
-        { name: 'nickname' },
-        { name: 'user_id' }
-      ],
-      post: [
-        { name: 'user_id' },
-        { name: 'network_id' },
-        { name: 'schedule_id' }
-      ],
-      picture: [
-        { name: 'user_id' }
-      ]
-    },
+  tables: {
+    url: 'urls',
+    user: 'users',
+    network: 'networks',
+    schedule: 'schedules',
+    post: 'posts',
+    picture: 'pictures'
+  },
+  indexes: {
+    user: [
+      { name: 'username' },
+      { name: 'email' }
+    ],
+    url: [
+      { name: 'url' },
+      { name: 'post_id' },
+      { name: 'created_at' },
+      { name: 'updated_at' },
+      { name: 'url_and_post_id', columns: [ 'url', 'post_id' ] }
+    ],
+    network: [
+      { name: 'name' }
+    ],
+    schedule: [
+      { name: 'nickname' },
+      { name: 'user_id' }
+    ],
+    post: [
+      { name: 'user_id' },
+      { name: 'network_id' },
+      { name: 'schedule_id' }
+    ],
+    picture: [
+      { name: 'user_id' }
+    ]
   }
 };
 ```
 
-Sample application using `database-layer` with migration.
+Sample application using `Jamadar` with migration.
 
 ```javascript
 'use strict';
@@ -86,21 +72,32 @@ Sample application using `database-layer` with migration.
 var path = require('path');
 
 var config = require(path.join(__dirname, 'config'));
-var db = require('database-layer')(config.rethinkdb);
+var db = require('jamadar')(config.rethinkdb);
 
-db.migrate(config.rethinkdb.db, config.app.tables, config.app.indexes)
+db.migrate(config.rethinkdb.db, config.tables, config.indexes)
   .then(function(result) {
     debug('Database setup complete.');
+    // Database is migrated
+    // Continue with regular tasks here.
+    // Start express server may be.
   })
   .catch(function(error) {
-    debug('Error in setting up application.');
+    debug('Error in migrating database', error.message);
     debug(error.stack);
   });
 ```
 
-The options Object must be same as options you'd provide to [rethinkdbdash](https://github.com/neumino/rethinkdbdash).
+The `config.rethinkdb` options Object must be same as options you'd provide to [rethinkdbdash](https://github.com/neumino/rethinkdbdash).
 
 
-### Exposed Functions ###
+## License
 
-See the module [exports](https://bitbucket.org/lolstack/database-layer/src/7a21c7bbcd3af3b073d5609780b8eb394d93b54c/index.js?at=master#index.js-590).
+(The MIT License)
+
+Copyright (c) 2015 Kulbir Saini
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

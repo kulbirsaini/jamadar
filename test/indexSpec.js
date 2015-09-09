@@ -11,9 +11,9 @@ var path = require('path');
 var Factory = require('rosie').Factory;
 
 var config = require(path.join(__dirname, 'config'));
-var dbLayer = require(path.join(__dirname, '../index'));
+var Jamadar = require(path.join(__dirname, '../index'));
 
-var db = dbLayer(config.rethinkdb);
+var db = Jamadar(config.rethinkdb);
 var expect = chai.expect;
 var should = chai.should();
 var urls = [
@@ -138,7 +138,7 @@ function mustBeFalse(result) {
 }
 
 //TODO FIXME write tests for functions which use instanceof method.
-describe('Database Layer', function() {
+describe('Jamadar', function() {
   var dbName = config.rethinkdb.db;
   var tables = config.app.tables;
   var indexes = config.app.indexes;
