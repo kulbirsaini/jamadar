@@ -1,6 +1,6 @@
 {
   "name": "jamadar",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Simplified database, table and index management functions for rethinkdb",
   "main": "index.js",
   "homepage": "https://github.com/kulbirsaini/jamadar",

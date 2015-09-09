@@ -106,7 +106,7 @@ Check `test/config.js` if your rethinkdb is not listening on default ports.
 
 ## Documentation
 
-  * [Jamadar](#jamadar)
+  * [Jamadar](#Jamadar)
   * [Jamadar#r](#r)
   * [Jamadar#getDbList](#getDbList)
   * [Jamadar#dbExists](#dbExists)
@@ -144,7 +144,7 @@ Check `test/config.js` if your rethinkdb is not listening on default ports.
 
 ## Reference
 
-<a name="jamadar" />
+<a name="Jamadar" />
 #### Jamadar
 
 Jamadar constructor. Needs a configuration object same as you'd pass to rethinkdbdash.
@@ -424,13 +424,26 @@ Check if an index exists and creates if it doesn't. Takes no callback.
 
 Checks if supplied indexes exist and create them if they don't exist. Takes no callback.
 
-Example: [ { name: 'field1' }, { name: 'field2' }, { name: 'field1_and_field2', fn: function(row) { return [row('field1'), row('field2')]; } }, ... ]
-
  * **Parameters:**
    * `{String}` — dbName Database name
    * `{String}` — tableName Table name
    * `{Array}` — indexData Array containing individual index data.
  * **Returns:** {Promise} Returns a promise resolved on successful creation/existence of indexes and rejected on error
+
+`indexData` example:
+
+```javascript
+  [
+    { name: 'field1' },
+    { name: 'field2' },
+    { name: 'field1_and_field2',
+      fn: function(row) {
+        return [row('field1'), row('field2')];
+      }
+    },
+    ...
+  ]
+```
 
 <a name="resetTables" />
 #### `function dropIndexIfExists(dbName, tableName, indexName)`
