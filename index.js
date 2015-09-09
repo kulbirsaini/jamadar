@@ -88,7 +88,7 @@ function verifyArgs(args) {
   return true;
 }
 
-/*
+/**
  * Get a list of databases.
  * Takes no callback.
  *
@@ -103,7 +103,7 @@ function getDbList() {
     });
 }
 
-/*
+/**
  * Checks if a database exists or not.
  * Takes no callback.
  *
@@ -120,7 +120,7 @@ function dbExists(dbName) {
     });
 }
 
-/*
+/**
  * Checks if databases exist and returns and array of dbs found.
  * Takes no callback.
  *
@@ -145,7 +145,7 @@ function dbsExist(dbNames) {
     });
 }
 
-/*
+/**
  * Creates a new database with given name.
  * Takes no callback.
  *
@@ -187,7 +187,7 @@ function dropDb(dbName) {
     });
 }
 
-/*
+/**
  * Checks if a database exists and creates it if it doesn't
  * Takes no callback.
  *
@@ -207,7 +207,7 @@ function createDbIfNotExists(dbName) {
     });
 }
 
-/*
+/**
  * Checks if databases exist and creates them if they don't
  * Takes no callback.
  *
@@ -235,7 +235,7 @@ function createDbsIfNotExist(dbNames) {
     });
 }
 
-/*
+/**
  * Checks if a database exists and drops it if it does.
  * Takes no callback.
  *
@@ -250,7 +250,7 @@ function dropDbIfExists(dbName) {
     });
 }
 
-/*
+/**
  * Checks if databases exist and drops them if they do.
  * Takes no callback.
  *
@@ -275,7 +275,7 @@ function dropDbsIfExist(dbNames) {
     });
 }
 
-/*
+/**
  * Reset all the tables of a database. It doesn't delete the tables but delete the rows in tables.
  * Takes no callback.
  *
@@ -295,7 +295,7 @@ function resetDb(dbName) {
     });
 }
 
-/*
+/**
  * Retrieves the list of tables in a database.
  * Takes no callback.
  *
@@ -316,7 +316,7 @@ function getTableList(dbName) {
     });
 }
 
-/*
+/**
  * Checks if a table exists in database.
  * Takes no callback.
  *
@@ -339,7 +339,7 @@ function tableExists(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Checks if tables exist in database.
  * Takes no callback.
  *
@@ -370,7 +370,7 @@ function tablesExist(dbName, tableNames) {
     });
 }
 
-/*
+/**
  * Creates a table in the database.
  * Takes no callback.
  *
@@ -392,7 +392,7 @@ function createTable(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Drops a table in the database.
  * Takes no callback.
  *
@@ -414,7 +414,7 @@ function dropTable(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Checks if a table exists and creates it if it doesn't
  * Takes no callback.
  *
@@ -435,7 +435,7 @@ function createTableIfNotExists(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Checks if tables exist and creates them if they don't
  * Takes no callback.
  *
@@ -464,7 +464,7 @@ function createTablesIfNotExist(dbName, tableNames) {
     });
 }
 
-/*
+/**
  * Checks if a table exists and drops it if it does.
  * Takes no callback.
  *
@@ -489,7 +489,7 @@ function dropTableIfExists(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Checks if tables exist and drops them if they do.
  * Takes no callback.
  *
@@ -520,7 +520,7 @@ function dropTablesIfExist(dbName, tableNames) {
     });
 }
 
-/*
+/**
  * Deletes all rows in a table.
  * Takes no callback.
  *
@@ -542,7 +542,7 @@ function resetTable(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Deletes all rows in given tables.
  * Takes no callback.
  *
@@ -565,7 +565,7 @@ function resetTables(dbName, tableNames) {
   );
 }
 
-/*
+/**
  * Fetches all indexes on a given table.
  * Takes no callback.
  *
@@ -587,7 +587,7 @@ function getIndexList(dbName, tableName) {
     });
 }
 
-/*
+/**
  * Checks if an index exists for a table or not.
  * Takes no callback.
  *
@@ -615,7 +615,7 @@ function indexExists(dbName, tableName, indexName) {
     });
 }
 
-/*
+/**
  * Checks if indexes exists for a table or not.
  * Takes no callback.
  *
@@ -647,7 +647,7 @@ function indexesExist(dbName, tableName, indexNames) {
     });
 }
 
-/*
+/**
  * Creates specified index and waits on it.
  * Takes no callback.
  *
@@ -686,7 +686,7 @@ function createIndex(dbName, tableName, indexName, fn) {
     });
 }
 
-/*
+/**
  * Drops specified index.
  * Takes no callback.
  *
@@ -709,7 +709,7 @@ function dropIndex(dbName, tableName, indexName) {
     });
 }
 
-/*
+/**
  * Check if an index exists and creates if it doesn't.
  * Takes no callback.
  *
@@ -732,7 +732,7 @@ function createIndexIfNotExists(dbName, tableName, indexName, fn) {
     });
 }
 
-/*
+/**
  * Checks if supplied indexes exist and create them if they don't exist.
  * Takes no callback.
  *
@@ -774,7 +774,7 @@ function createIndexesIfNotExist(dbName, tableName, indexData) {
     });
 }
 
-/*
+/**
  * Checks if an index exists and drops if it does.
  * Takes no callback.
  *
@@ -800,7 +800,7 @@ function dropIndexIfExists(dbName, tableName, indexName) {
     });
 }
 
-/*
+/**
  * Checks if indexes exist and drops them if they do
  * Takes no callback.
  *
@@ -832,7 +832,7 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
     });
 }
 
-/*
+/**
  * Migrates database to a provided configuration.
  * Takes no callback.
  *
