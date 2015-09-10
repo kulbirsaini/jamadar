@@ -2,6 +2,8 @@
 
 Simplified database, table and index management functions for rethinkdb.
 
+[![Build Status](https://travis-ci.org/kulbirsaini/jamadar.svg)](https://travis-ci.org/kulbirsaini/jamadar)
+
 ### How To Install? ###
 
 ```bash
