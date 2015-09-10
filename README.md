@@ -3,6 +3,7 @@
 Simplified database, table and index management functions for rethinkdb.
 
 [![Build Status](https://travis-ci.org/kulbirsaini/jamadar.svg)](https://travis-ci.org/kulbirsaini/jamadar)
+[![npm version](https://badge.fury.io/js/jamadar.svg)](http://badge.fury.io/js/jamadar)
 
 ### How To Install? ###
 
