@@ -4,9 +4,6 @@ before_script:
   - sudo apt-get update
   - sudo apt-get install rethinkdb
   - rethinkdb --bind all &
-branches:
-  only:
-    - travis
 language: node_js
 node_js:
   - "0.12"
