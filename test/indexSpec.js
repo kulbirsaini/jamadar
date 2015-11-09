@@ -13,7 +13,7 @@ var Factory = require('rosie').Factory;
 var config = require(path.join(__dirname, 'config'));
 var Jamadar = require(path.join(__dirname, '../index'));
 
-var db = Jamadar(config.rethinkdb);
+var db = new Jamadar(config.rethinkdb);
 var expect = chai.expect;
 var should = chai.should();
 var urls = [
@@ -137,7 +137,6 @@ function mustBeFalse(result) {
   result.should.be.false;
 }
 
-//TODO FIXME write tests for functions which use instanceof method.
 describe('Jamadar', function() {
   var dbName = config.rethinkdb.db;
   var tables = config.app.tables;

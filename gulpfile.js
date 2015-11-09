@@ -31,7 +31,7 @@ gulp.task('mocha', ['test-env'], function() {
     .pipe(mocha({ reporter: 'spec' }));
 });
 
-gulp.task('watch', function() {
+gulp.task('watch', ['jshint'], function() {
   gulp.watch(paths.jshint, ['jshint']);
   gulp.watch(paths.mocha, ['mocha']);
 });

@@ -904,13 +904,15 @@ function migrate(dbName, tables, indexes) {
  * It exposes most internal ReQL functions.
  *
  * @method Model
- * @param {Object} r Rethinkdbdash instance
  * @param {String} dbName The database name
  * @param {String} tableName The table name
+ * @param {Object} r Rethinkdbdash instance
  * @return {Object} Return an object exposing wrappers around ReQL functions.
  */
-function Model(dbName, tableName) {
-  var r = Jamadar.singleton.r;
+function JamadarModel(dbName, tableName, r) {
+  if (!(this instanceof JamadarModel)) {
+    return new JamadarModel(dbName, tableName);
+  }
 
   var verified = verifyArgs({ dbName: dbName, tableName: tableName });
   if (verified !== true) {
@@ -929,7 +931,6 @@ function Model(dbName, tableName) {
 
   return {
     r: r,
-    table: table,
     dbName: dbName,
     tableName: tableName,
     model: table()
@@ -937,7 +938,16 @@ function Model(dbName, tableName) {
 }
 
 function Jamadar(dbConfig) {
+  if(!(this instanceof Jamadar)){
+    return new Jamadar(dbConfig);
+  }
+
   r = rethinkdbdash(dbConfig);
+
+  function Model(dbName, tableName) {
+    return new JamadarModel(dbName, tableName, r);
+  }
+
   return {
     r: r,
     getDbList: getDbList,
@@ -977,7 +987,7 @@ function Jamadar(dbConfig) {
 
 function init(dbConfig) {
   if (!Jamadar.singleton) {
-    Jamadar.singleton = Jamadar(dbConfig);
+    Jamadar.singleton = new Jamadar(dbConfig);
   }
   return Jamadar.singleton;
 }
