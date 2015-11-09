@@ -26,7 +26,7 @@ Sample configuration file `config.js`.
 'use strict';
 
 module.exports = {
-  rethinkdb: {
+  hosts: {
     servers: [
       { host: 'localhost', port: 28015 }
     ],
@@ -79,12 +79,14 @@ Sample application using `Jamadar` with migration.
 ```javascript
 'use strict';
 
+var Jamadar = require('jamadar');
 var path = require('path');
 
 var config = require(path.join(__dirname, 'config'));
-var db = require('jamadar')(config.rethinkdb);
 
-db.migrate(config.rethinkdb.db, config.tables, config.indexes)
+var jamadar = new Jamadar(config.hosts);
+
+jamadar.migrate(config.hosts.db, config.tables, config.indexes)
   .then(function(result) {
     debug('Database setup complete.');
     // Database is migrated
@@ -97,7 +99,9 @@ db.migrate(config.rethinkdb.db, config.tables, config.indexes)
   });
 ```
 
-The `config.rethinkdb` options Object must be same as options you'd provide to [rethinkdbdash](https://github.com/neumino/rethinkdbdash).
+The `config.hosts` options Object must be same as options you'd provide to [rethinkdbdash](https://github.com/neumino/rethinkdbdash#importing-the-driver).
+
+Checkout a detailed example at [express app with models](https://github.com/kulbirsaini/jamadar/tree/master/examples/app-with-models).
 
 ### Testing
 
@@ -143,7 +147,6 @@ Check `test/config.js` if your rethinkdb is not listening on default ports.
   * [Jamadar#resetDb](#resetDb)
   * [Jamadar#migrate](#migrate)
   * [Jamadar#Model](#Model)
-  * [Jamadar#Model#table](#table)
 
 ## Reference
 
@@ -530,15 +533,6 @@ User.get(id).update({ name: 'Kulbir Saini' }).run()
     console.log(result);
   });
 ```
-
-<a name="table" />
-#### `function table()`
-
-Returns a rethinkdb query object with table selected.
-
- * **Returns:** {Query} A rethinkdb query object
-
-See [Jamadar#Model](#model) for an example.
 
 ## License
 
