@@ -1,3 +1,3 @@
 'use strict';
 
-module.exports = require('rethinkdbdash');
+module.exports = require('rethinkdbdash')({ pool: false });

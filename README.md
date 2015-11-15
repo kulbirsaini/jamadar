@@ -114,6 +114,8 @@ If you need quick access to `r` for using it in cases like [`r.args`](http://ret
 var r = require('jamadar/r');
 ```
 
+Please note that `r` won't have any connection or will not able to execute commands which require an active database connection.
+
 
 ### Testing
 
