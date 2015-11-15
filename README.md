@@ -103,6 +103,18 @@ The `config.hosts` options Object must be same as options you'd provide to [reth
 
 Checkout a detailed example at [express app with models](https://github.com/kulbirsaini/jamadar/tree/master/examples/app-with-models).
 
+
+### Need Access to `r`?
+
+If you need quick access to `r` for using it in cases like [`r.args`](http://rethinkdb.com/api/javascript/args/), you can require `r` directly like this
+
+```javascript
+'use strict';
+
+var r = require('jamadar/r');
+```
+
+
 ### Testing
 
 ```bash
