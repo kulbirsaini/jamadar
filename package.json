@@ -43,5 +43,8 @@
     "database",
     "tasks",
     "model"
-  ]
+  ],
+  "optionalDependencies": {
+    "inflected": "^1.1.6"
+  }
 }

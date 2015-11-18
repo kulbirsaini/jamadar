@@ -13,7 +13,7 @@ var Factory = require('rosie').Factory;
 var config = require(path.join(__dirname, 'config'));
 var Jamadar = require(path.join(__dirname, '../index'));
 
-var db = new Jamadar(config.rethinkdb);
+var jamadar = new Jamadar(config.rethinkdb);
 var expect = chai.expect;
 var should = chai.should();
 var urls = [
@@ -74,7 +74,7 @@ function getRandomObjects() {
 }
 
 function createDb(dbNames, done) {
-  db.createDbsIfNotExist(dbNames)
+  jamadar.createDbsIfNotExist(dbNames)
     .then(function(result) {
       done();
     })
@@ -82,7 +82,7 @@ function createDb(dbNames, done) {
 }
 
 function dropDb(dbNames, done) {
-  db.dropDbsIfExist(dbNames)
+  jamadar.dropDbsIfExist(dbNames)
     .then(function(result) {
       done();
     })
@@ -90,9 +90,9 @@ function dropDb(dbNames, done) {
 }
 
 function recreateDb(dbNames, done) {
-  db.dropDbsIfExist(dbNames)
+  jamadar.dropDbsIfExist(dbNames)
     .then(function(result) {
-      return db.createDbsIfNotExist(dbNames);
+      return jamadar.createDbsIfNotExist(dbNames);
     })
     .then(function(result) {
       done();
@@ -101,7 +101,7 @@ function recreateDb(dbNames, done) {
 }
 
 function createTables(dbName, tableNames, done) {
-  db.createTablesIfNotExist(dbName, tableNames)
+  jamadar.createTablesIfNotExist(dbName, tableNames)
     .then(function(result) {
       done();
     })
@@ -109,9 +109,9 @@ function createTables(dbName, tableNames, done) {
 }
 
 function recreateTables(dbName, tableNames, done) {
-  db.dropTablesIfExist(dbName, tableNames)
+  jamadar.dropTablesIfExist(dbName, tableNames)
     .then(function(result) {
-      return db.createTablesIfNotExist(dbName, tableNames);
+      return jamadar.createTablesIfNotExist(dbName, tableNames);
     })
     .then(function(result) {
       done();
@@ -120,7 +120,7 @@ function recreateTables(dbName, tableNames, done) {
 }
 
 function resetTables(dbName, tableNames, done) {
-  db.resetTables(dbName, tableNames)
+  jamadar.resetTables(dbName, tableNames)
     .then(function(result) {
       done();
     })
@@ -139,13 +139,21 @@ function mustBeFalse(result) {
 
 describe('Jamadar', function() {
   var dbName = config.rethinkdb.db;
-  var tables = config.app.tables;
-  var indexes = config.app.indexes;
-  var tableNames = _.values(tables);
-  var randomTableId = Object.keys(indexes)[0];
+  var tableConfig = config.tableConfig;
+  var indexes = {};
+  var tableNames = [];
+
+  Object.keys(tableConfig).forEach(function(tableId) {
+    tableNames.push(tableConfig[tableId].table_name);
+    if (_.isObject(tableConfig[tableId].indexes)) {
+      indexes[tableId] = tableConfig[tableId].indexes;
+    }
+  });
+
+  var randomTableId = Object.keys(tableConfig)[0];
   var indexNames = indexes[randomTableId].map(function(indexData) { return indexData.name; });
   var urlTable = tableNames[0];
-  var UrlModel = db.Model(dbName, urlTable).model;
+  var UrlModel = jamadar.Model(dbName, urlTable).model;
 
   this.timeout(20000);
 
@@ -163,7 +171,7 @@ describe('Jamadar', function() {
     });
 
     it('should return a list of database names', function(done) {
-      db.getDbList()
+      jamadar.getDbList()
         .then(function(result) {
           result.should.be.Array;
           result.should.not.contain(dbName);
@@ -179,7 +187,7 @@ describe('Jamadar', function() {
     });
 
     it('should return a list of database names', function(done) {
-      db.getDbList()
+      jamadar.getDbList()
         .then(function(result) {
           result.should.be.Array;
           result.should.contain(dbName);
@@ -195,7 +203,7 @@ describe('Jamadar', function() {
     });
 
     it('should return false if a database does not exist', function(done) {
-      db.dbExists(dbName)
+      jamadar.dbExists(dbName)
         .then(function(result) {
           mustBeFalse(result);
           done();
@@ -210,7 +218,7 @@ describe('Jamadar', function() {
     });
 
     it('should return true if a database does not exist', function(done) {
-      db.dbExists(dbName)
+      jamadar.dbExists(dbName)
         .then(function(result) {
           mustBeTrue(result);
           done();
@@ -225,11 +233,11 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database is not specified', function() {
-      db.createDb().should.be.rejectedWith(Error);
+      jamadar.createDb().should.be.rejectedWith(Error);
     });
 
     it('should create a database', function(done) {
-      db.createDb(dbName)
+      jamadar.createDb(dbName)
         .then(function(result) {
           mustBeTrue(result);
           done();
@@ -238,7 +246,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if a database already exists', function() {
-      db.createDb(dbName).should.be.rejectedWith(Error);
+      jamadar.createDb(dbName).should.be.rejectedWith(Error);
     });
   });
 
@@ -248,11 +256,11 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database is not specified', function() {
-      db.dropDb().should.be.rejectedWith(Error);
+      jamadar.dropDb().should.be.rejectedWith(Error);
     });
 
     it('should drop a database', function(done) {
-      db.dropDb(dbName)
+      jamadar.dropDb(dbName)
         .then(function(result) {
           mustBeTrue(result);
           done();
@@ -261,7 +269,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when a database does not exist', function() {
-      db.dropDb(dbName).should.be.rejectedWith(Error);
+      jamadar.dropDb(dbName).should.be.rejectedWith(Error);
     });
   });
 
@@ -271,18 +279,18 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database is not specified', function() {
-      db.createDbIfNotExists().should.be.rejectedWith(Error);
+      jamadar.createDbIfNotExists().should.be.rejectedWith(Error);
     });
 
     it('should create a database if it does not exist', function(done) {
-      db.dbExists(dbName)
+      jamadar.dbExists(dbName)
         .then(function(result) {
           mustBeFalse(result);
-          return db.createDbIfNotExists(dbName);
+          return jamadar.createDbIfNotExists(dbName);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.dbExists(dbName);
+          return jamadar.dbExists(dbName);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -292,14 +300,14 @@ describe('Jamadar', function() {
     });
 
     it('should create a database even if it does exist', function(done) {
-      db.dbExists(dbName)
+      jamadar.dbExists(dbName)
         .then(function(result) {
           mustBeTrue(result);
-          return db.createDbIfNotExists(dbName);
+          return jamadar.createDbIfNotExists(dbName);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.dbExists(dbName);
+          return jamadar.dbExists(dbName);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -309,7 +317,7 @@ describe('Jamadar', function() {
     });
 
     it('should not be rejected with an error even if database already exists', function() {
-      db.createDbIfNotExists(dbName).should.not.be.rejectedWith(Error);
+      jamadar.createDbIfNotExists(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
@@ -319,11 +327,11 @@ describe('Jamadar', function() {
     });
 
     it('should not be rejected with an error if database is not specified', function() {
-      db.dropDbIfExists().should.not.be.rejectedWith(Error);
+      jamadar.dropDbIfExists().should.not.be.rejectedWith(Error);
     });
 
     it('should return true if a database is not specified', function(done) {
-      db.dropDbIfExists()
+      jamadar.dropDbIfExists()
         .then(function(result) {
           mustBeTrue(result);
           done();
@@ -332,14 +340,14 @@ describe('Jamadar', function() {
     });
 
     it('should drop a database if it exists', function(done) {
-      db.dbExists(dbName)
+      jamadar.dbExists(dbName)
         .then(function(result) {
           mustBeTrue(result);
-          return db.dropDbIfExists(dbName);
+          return jamadar.dropDbIfExists(dbName);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.dbExists(dbName);
+          return jamadar.dbExists(dbName);
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -349,7 +357,7 @@ describe('Jamadar', function() {
     });
 
     it('should not throw an Error if database does not exist', function() {
-      db.dropDbIfExists(dbName).should.not.be.rejectedWith(Error);
+      jamadar.dropDbIfExists(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
@@ -357,17 +365,17 @@ describe('Jamadar', function() {
     var dbs = [dbName, dbName + '_1' + dbName + '_2'];
 
     it('should be rejected with an error if database(s) are not specified', function() {
-      db.createDbsIfNotExist().should.be.rejectedWith(Error);
+      jamadar.createDbsIfNotExist().should.be.rejectedWith(Error);
     });
 
     it('should create databases', function(done) {
-      db.createDbsIfNotExist(dbs)
+      jamadar.createDbsIfNotExist(dbs)
         .then(function(results) {
           results.should.be.Array;
           results.filter(function(result) {
             return result === false;
           }).should.have.length(0);
-          return db.dbsExist(dbs);
+          return jamadar.dbsExist(dbs);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -381,7 +389,7 @@ describe('Jamadar', function() {
     });
 
     it('should not throw an Error if one or more of databases already exist', function() {
-      db.createDbsIfNotExist(dbs).should.not.be.rejectedWith(Error);
+      jamadar.createDbsIfNotExist(dbs).should.not.be.rejectedWith(Error);
     });
   });
 
@@ -389,17 +397,17 @@ describe('Jamadar', function() {
     var dbs = [dbName, dbName + '_1' + dbName + '_2'];
 
     it('should not be rejected with an error if database(s) are not specified', function() {
-      db.dropDbsIfExist().should.not.be.rejectedWith(Error);
+      jamadar.dropDbsIfExist().should.not.be.rejectedWith(Error);
     });
 
     it('should drop databases', function(done) {
-      db.dropDbsIfExist(dbs)
+      jamadar.dropDbsIfExist(dbs)
         .then(function(results) {
           results.should.be.Array;
           results.filter(function(result) {
             return result === false;
           }).should.have.length(0);
-          return db.dbsExist(dbs);
+          return jamadar.dbsExist(dbs);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -410,7 +418,7 @@ describe('Jamadar', function() {
     });
 
     it('should not throw an Error if one or more of databases already exist', function() {
-      db.dropDbsIfExist(dbs).should.not.be.rejectedWith(Error);
+      jamadar.dropDbsIfExist(dbs).should.not.be.rejectedWith(Error);
     });
   });
 
@@ -420,11 +428,11 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database is not specified', function() {
-      db.getTableList().should.be.rejectedWith(Error);
+      jamadar.getTableList().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error when database does not exist', function() {
-      db.getTableList(dbName).should.be.rejectedWith(Error);
+      jamadar.getTableList(dbName).should.be.rejectedWith(Error);
     });
   });
 
@@ -438,7 +446,7 @@ describe('Jamadar', function() {
     });
 
     it('should return an empty list when there are no tables', function(done) {
-      db.getTableList(dbName)
+      jamadar.getTableList(dbName)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
@@ -448,7 +456,7 @@ describe('Jamadar', function() {
     });
 
     it('should not be rejected with an error when database exists', function() {
-      db.getTableList(dbName).should.not.be.rejectedWith(Error);
+      jamadar.getTableList(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
@@ -462,7 +470,7 @@ describe('Jamadar', function() {
     });
 
     it('should return a list of tables', function(done) {
-      db.getTableList(dbName)
+      jamadar.getTableList(dbName)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(tableNames.length);
@@ -485,7 +493,7 @@ describe('Jamadar', function() {
     });
 
     it('should return true if a table exists', function(done) {
-      db.tableExists(dbName, tableNames[0])
+      jamadar.tableExists(dbName, tableNames[0])
         .then(function(result) {
           mustBeTrue(result);
           done();
@@ -494,7 +502,7 @@ describe('Jamadar', function() {
     });
 
     it('should return false if a table does not exist', function(done) {
-      db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
+      jamadar.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
           mustBeFalse(result);
           done();
@@ -503,7 +511,7 @@ describe('Jamadar', function() {
     });
 
     it('should return false when table name is not specified', function(done) {
-      db.tableExists(dbName)
+      jamadar.tableExists(dbName)
         .then(function(result) {
           mustBeFalse(result);
           done();
@@ -512,11 +520,11 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.tableExists().should.be.rejectedWith(Error);
+      jamadar.tableExists().should.be.rejectedWith(Error);
     });
 
     it('should not be rejected with an error when table name is not specified', function() {
-      db.tableExists(dbName).should.not.be.rejectedWith(Error);
+      jamadar.tableExists(dbName).should.not.be.rejectedWith(Error);
     });
   });
 
@@ -526,22 +534,22 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.createTable().should.be.rejectedWith(Error);
+      jamadar.createTable().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error when table name is not specified', function() {
-      db.createTable(dbName).should.be.rejectedWith(Error);
+      jamadar.createTable(dbName).should.be.rejectedWith(Error);
     });
 
     it('should create a table when it does not exist', function(done) {
-      db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
+      jamadar.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
           mustBeFalse(result);
-          return db.createTable(dbName, 'asdfasdfasdfasdfasdfasdf');
+          return jamadar.createTable(dbName, 'asdfasdfasdfasdfasdfasdf');
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf');
+          return jamadar.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf');
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -551,7 +559,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when table already exists', function() {
-      db.createTable(dbName, 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
+      jamadar.createTable(dbName, 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
     });
   });
 
@@ -565,22 +573,22 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.dropTable().should.be.rejectedWith(Error);
+      jamadar.dropTable().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error when table name is not specified', function() {
-      db.dropTable(dbName).should.be.rejectedWith(Error);
+      jamadar.dropTable(dbName).should.be.rejectedWith(Error);
     });
 
     it('should drop a table if it exists', function(done) {
-      db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
+      jamadar.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
           mustBeTrue(result);
-          return db.dropTable(dbName, 'asdfasdfasdfasdfasdfasdf');
+          return jamadar.dropTable(dbName, 'asdfasdfasdfasdfasdfasdf');
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf');
+          return jamadar.tableExists(dbName, 'asdfasdfasdfasdfasdfasdf');
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -590,7 +598,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when table does not exist', function() {
-      db.dropTable(dbName, 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
+      jamadar.dropTable(dbName, 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
     });
   });
 
@@ -604,15 +612,15 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.dropTableIfExists().should.be.rejectedWith(Error);
+      jamadar.dropTableIfExists().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error when table name is not specified', function() {
-      db.dropTableIfExists(dbName).should.be.fulfilled;
+      jamadar.dropTableIfExists(dbName).should.be.fulfilled;
     });
 
     it('should return true if not table name is specified', function(done) {
-      db.dropTableIfExists(dbName)
+      jamadar.dropTableIfExists(dbName)
         .then(function(result) {
           mustBeTrue(result);
           done();
@@ -621,14 +629,14 @@ describe('Jamadar', function() {
     });
 
     it('should drop table if exists', function(done) {
-      db.tableExists(dbName, tableNames[0])
+      jamadar.tableExists(dbName, tableNames[0])
         .then(function(result) {
           mustBeTrue(result);
-          return db.dropTableIfExists(dbName, tableNames[0]);
+          return jamadar.dropTableIfExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.tableExists(dbName, tableNames[0]);
+          return jamadar.tableExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -638,14 +646,14 @@ describe('Jamadar', function() {
     });
 
     it('should drop table if does not exist', function(done) {
-      db.tableExists(dbName, tableNames[0])
+      jamadar.tableExists(dbName, tableNames[0])
         .then(function(result) {
           mustBeFalse(result);
-          return db.dropTableIfExists(dbName, tableNames[0]);
+          return jamadar.dropTableIfExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.tableExists(dbName, tableNames[0]);
+          return jamadar.tableExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -665,23 +673,23 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.dropTablesIfExist().should.be.rejectedWith(Error);
+      jamadar.dropTablesIfExist().should.be.rejectedWith(Error);
     });
 
     it('should not be rejected with an error when table names are not specified', function() {
-      db.dropTablesIfExist(dbName).should.be.resolved;
+      jamadar.dropTablesIfExist(dbName).should.be.resolved;
     });
 
     it('should drop tables if exist', function(done) {
       var curTables = tableNames.slice(0, 3);
-      db.tablesExist(dbName, curTables)
+      jamadar.tablesExist(dbName, curTables)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(curTables.length);
           results.filter(function(result) {
             return curTables.indexOf(result) < 0;
           }).should.have.length(0);
-          return db.dropTablesIfExist(dbName, curTables);
+          return jamadar.dropTablesIfExist(dbName, curTables);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -689,7 +697,7 @@ describe('Jamadar', function() {
           results.filter(function(result) {
             return result === true;
           }).should.have.length(curTables.length);
-          return db.tablesExist(dbName, curTables);
+          return jamadar.tablesExist(dbName, curTables);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -700,11 +708,11 @@ describe('Jamadar', function() {
     });
 
     it('should drop tables if not exist', function(done) {
-      db.tablesExist(dbName, ['a', 'b', 'c'])
+      jamadar.tablesExist(dbName, ['a', 'b', 'c'])
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
-          return db.dropTablesIfExist(dbName, ['a', 'b', 'c']);
+          return jamadar.dropTablesIfExist(dbName, ['a', 'b', 'c']);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -715,7 +723,7 @@ describe('Jamadar', function() {
     });
 
     it('should return empty array when not table names specified', function(done) {
-      db.dropTablesIfExist(dbName)
+      jamadar.dropTablesIfExist(dbName)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
@@ -731,22 +739,22 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.createTableIfNotExists().should.be.rejectedWith(Error);
+      jamadar.createTableIfNotExists().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error when table name is not specified', function() {
-      db.createTableIfNotExists(dbName).should.be.rejectedWith(Error);
+      jamadar.createTableIfNotExists(dbName).should.be.rejectedWith(Error);
     });
 
     it('should create a table if not exists', function(done) {
-      db.tableExists(dbName, tableNames[0])
+      jamadar.tableExists(dbName, tableNames[0])
         .then(function(result) {
           mustBeFalse(result);
-          return db.createTableIfNotExists(dbName, tableNames[0]);
+          return jamadar.createTableIfNotExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.tableExists(dbName, tableNames[0]);
+          return jamadar.tableExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -756,14 +764,14 @@ describe('Jamadar', function() {
     });
 
     it('should create a table if exists', function(done) {
-      db.tableExists(dbName, tableNames[0])
+      jamadar.tableExists(dbName, tableNames[0])
         .then(function(result) {
           mustBeTrue(result);
-          return db.createTableIfNotExists(dbName, tableNames[0]);
+          return jamadar.createTableIfNotExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.tableExists(dbName, tableNames[0]);
+          return jamadar.tableExists(dbName, tableNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -779,24 +787,24 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error when database name is not specified', function() {
-      db.createTablesIfNotExist().should.be.rejectedWith(Error);
+      jamadar.createTablesIfNotExist().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error when table name is not specified', function() {
-      db.createTablesIfNotExist(dbName).should.be.rejectedWith(Error);
+      jamadar.createTablesIfNotExist(dbName).should.be.rejectedWith(Error);
     });
 
     it('should create tables if not exist', function(done) {
-      db.tablesExist(dbName, tableNames)
+      jamadar.tablesExist(dbName, tableNames)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
-          return db.createTablesIfNotExist(dbName, tableNames);
+          return jamadar.createTablesIfNotExist(dbName, tableNames);
         })
         .then(function(result) {
           result.should.be.Array;
           result.should.have.length(tableNames.length);
-          return db.tablesExist(dbName, tableNames);
+          return jamadar.tablesExist(dbName, tableNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -810,19 +818,19 @@ describe('Jamadar', function() {
     });
 
     it('should create tables if exist', function(done) {
-      db.tablesExist(dbName, tableNames)
+      jamadar.tablesExist(dbName, tableNames)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(tableNames.length);
           results.filter(function(result) {
             return tableNames.indexOf(result) < 0;
           }).should.have.length(0);
-          return db.createTablesIfNotExist(dbName, tableNames);
+          return jamadar.createTablesIfNotExist(dbName, tableNames);
         })
         .then(function(result) {
           result.should.be.Array;
           result.should.have.length(0);
-          return db.getTableList(dbName);
+          return jamadar.getTableList(dbName);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -847,19 +855,19 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.getIndexList().should.be.rejectedWith(Error);
+      jamadar.getIndexList().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.getIndexList(dbName).should.be.rejectedWith(Error);
+      jamadar.getIndexList(dbName).should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table does not exit', function() {
-      db.getIndexList(dbName, 'adfs').should.be.rejectedWith(Error);
+      jamadar.getIndexList(dbName, 'adfs').should.be.rejectedWith(Error);
     });
 
     it('should return an empty list when table has no indexes', function(done) {
-      db.getIndexList(dbName, tableNames[0])
+      jamadar.getIndexList(dbName, tableNames[0])
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
@@ -869,11 +877,11 @@ describe('Jamadar', function() {
     });
 
     it('should return list of indexes on a table', function(done) {
-      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
+      jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, indexes[randomTableId])
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(indexNames.length);
-          return db.getIndexList(dbName, tables[randomTableId]);
+          return jamadar.getIndexList(dbName, tableConfig[randomTableId].table_name);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -897,19 +905,19 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.indexExists().should.be.rejectedWith(Error);
+      jamadar.indexExists().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.indexExists(dbName).should.be.rejectedWith(Error);
+      jamadar.indexExists(dbName).should.be.rejectedWith(Error);
     });
 
     it('should return true if an index exist on a table', function(done) {
-      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
+      jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, indexes[randomTableId])
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(indexNames.length);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -919,7 +927,7 @@ describe('Jamadar', function() {
     });
 
     it('should return false if an index does not exist on a table', function(done) {
-      db.indexExists(dbName, tables[randomTableId], 'asdfasdfasdfasdfasdfasdf')
+      jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, 'asdfasdfasdfasdfasdfasdf')
         .then(function(result) {
           mustBeFalse(result);
           done();
@@ -928,7 +936,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if a table does not exist', function() {
-      db.indexExists(dbName, 'asdfasdfasdfasdfasdfasdffsadfasdf', 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
+      jamadar.indexExists(dbName, 'asdfasdfasdfasdfasdfasdffsadfasdf', 'asdfasdfasdfasdfasdfasdf').should.be.rejectedWith(Error);
     });
   });
 
@@ -942,30 +950,30 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.dropIndex().should.be.rejectedWith(Error);
+      jamadar.dropIndex().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.dropIndex(dbName).should.be.rejectedWith(Error);
+      jamadar.dropIndex(dbName).should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if index name if not specified', function() {
-      db.dropIndex(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
+      jamadar.dropIndex(dbName, tableConfig[randomTableId].table_name).should.be.rejectedWith(Error);
     });
 
     it('should drop an index and return true if exists', function(done) {
-      db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[0])
+      jamadar.createIndexIfNotExists(dbName, tableConfig[randomTableId].table_name, indexNames[0])
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.dropIndex(dbName, tables[randomTableId], indexNames[0]);
+          return jamadar.dropIndex(dbName, tableConfig[randomTableId].table_name, indexNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[0]);
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -975,7 +983,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if index does not exist', function() {
-      db.dropIndex(dbName, tables[randomTableId], indexNames[0]).should.be.rejectedWith(Error);
+      jamadar.dropIndex(dbName, tableConfig[randomTableId].table_name, indexNames[0]).should.be.rejectedWith(Error);
     });
   });
 
@@ -989,30 +997,30 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.dropIndexIfExists().should.be.rejectedWith(Error);
+      jamadar.dropIndexIfExists().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.dropIndexIfExists(dbName).should.be.rejectedWith(Error);
+      jamadar.dropIndexIfExists(dbName).should.be.rejectedWith(Error);
     });
 
     it('should not be rejected with an error if index name if not specified', function() {
-      db.dropIndexIfExists(dbName, tables[randomTableId]).should.not.be.rejectedWith(Error);
+      jamadar.dropIndexIfExists(dbName, tableConfig[randomTableId].table_name).should.not.be.rejectedWith(Error);
     });
 
     it('should drop an index and return true if exists', function(done) {
-      db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[1])
+      jamadar.createIndexIfNotExists(dbName, tableConfig[randomTableId].table_name, indexNames[1])
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.dropIndexIfExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.dropIndexIfExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -1022,14 +1030,14 @@ describe('Jamadar', function() {
     });
 
     it('should drop an index and return true if it does not exist', function(done) {
-      db.indexExists(dbName, tables[randomTableId], indexNames[1])
+      jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1])
         .then(function(result) {
           mustBeFalse(result);
-          return db.dropIndexIfExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.dropIndexIfExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeFalse(result);
@@ -1049,37 +1057,37 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.dropIndexesIfExist().should.be.rejectedWith(Error);
+      jamadar.dropIndexesIfExist().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name is not specified', function() {
-      db.dropIndexesIfExist(dbName).should.be.rejectedWith(Error);
+      jamadar.dropIndexesIfExist(dbName).should.be.rejectedWith(Error);
     });
 
     it('should not be rejected with an error if index names are not specified', function() {
-      db.dropIndexesIfExist(dbName, tables[randomTableId]).should.not.be.rejectedWith(Error);
+      jamadar.dropIndexesIfExist(dbName, tableConfig[randomTableId].table_name).should.not.be.rejectedWith(Error);
     });
 
     it('should drop indexes and return true if they exist', function(done) {
-      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
+      jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, indexes[randomTableId])
         .then(function(results) {
           results.should.be.Array;
           results.filter(function(result) {
             return result === true;
           }).should.have.length(indexNames.length);
-          return db.indexesExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(indexNames.length);
-          return db.dropIndexesIfExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.dropIndexesIfExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
           results.filter(function(result) {
             return result === true;
           }).should.have.length(indexNames.length);
-          return db.indexesExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -1090,16 +1098,16 @@ describe('Jamadar', function() {
     });
 
     it('should drop indexes and return if they do not exist', function(done) {
-      db.indexesExist(dbName, tables[randomTableId], indexNames)
+      jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
-          return db.dropIndexesIfExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.dropIndexesIfExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
-          return db.indexesExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -1120,26 +1128,26 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.createIndex().should.be.rejectedWith(Error);
+      jamadar.createIndex().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.createIndex(dbName).should.be.rejectedWith(Error);
+      jamadar.createIndex(dbName).should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if index name if not specified', function() {
-      db.createIndex(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
+      jamadar.createIndex(dbName, tableConfig[randomTableId].table_name).should.be.rejectedWith(Error);
     });
 
     it('should create an index if does not exist', function(done) {
-      db.indexExists(dbName, tables[randomTableId], indexNames[0])
+      jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[0])
         .then(function(result) {
           mustBeFalse(result);
-          return db.createIndex(dbName, tables[randomTableId], indexNames[0]);
+          return jamadar.createIndex(dbName, tableConfig[randomTableId].table_name, indexNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[0]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[0]);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -1149,7 +1157,7 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if index already exist', function() {
-      db.createIndex(dbName, tables[randomTableId], indexNames[0]).should.be.rejectedWith(Error);
+      jamadar.createIndex(dbName, tableConfig[randomTableId].table_name, indexNames[0]).should.be.rejectedWith(Error);
     });
   });
 
@@ -1163,26 +1171,26 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.createIndexIfNotExists().should.be.rejectedWith(Error);
+      jamadar.createIndexIfNotExists().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.createIndexIfNotExists(dbName).should.be.rejectedWith(Error);
+      jamadar.createIndexIfNotExists(dbName).should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if index name if not specified', function() {
-      db.createIndexIfNotExists(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
+      jamadar.createIndexIfNotExists(dbName, tableConfig[randomTableId].table_name).should.be.rejectedWith(Error);
     });
 
     it('should create an index if does not exist', function(done) {
-      db.indexExists(dbName, tables[randomTableId], indexNames[1])
+      jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1])
         .then(function(result) {
           mustBeFalse(result);
-          return db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.createIndexIfNotExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -1192,14 +1200,14 @@ describe('Jamadar', function() {
     });
 
     it('should return true if index exist', function(done) {
-      db.indexExists(dbName, tables[randomTableId], indexNames[1])
+      jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1])
         .then(function(result) {
           mustBeTrue(result);
-          return db.createIndexIfNotExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.createIndexIfNotExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
-          return db.indexExists(dbName, tables[randomTableId], indexNames[1]);
+          return jamadar.indexExists(dbName, tableConfig[randomTableId].table_name, indexNames[1]);
         })
         .then(function(result) {
           mustBeTrue(result);
@@ -1219,34 +1227,34 @@ describe('Jamadar', function() {
     });
 
     it('should be rejected with an error if database name if not specified', function() {
-      db.createIndex().should.be.rejectedWith(Error);
+      jamadar.createIndex().should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if table name if not specified', function() {
-      db.createIndexesIfNotExist(dbName).should.be.rejectedWith(Error);
+      jamadar.createIndexesIfNotExist(dbName).should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if index data if not specified', function() {
-      db.createIndexesIfNotExist(dbName, tables[randomTableId]).should.be.rejectedWith(Error);
+      jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name).should.be.rejectedWith(Error);
     });
 
     it('should be rejected with an error if index data is not an Array', function() {
-      db.createIndexesIfNotExist(dbName, tables[randomTableId], 'TEST').should.be.rejectedWith(Error);
+      jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, 'TEST').should.be.rejectedWith(Error);
     });
 
     it('should create indexes and return true if they do not exist', function(done) {
       var curIndexNames = indexNames.slice(0, 2);
       var curIndexData = indexes[randomTableId].slice(0, 2);
-      db.indexesExist(dbName, tables[randomTableId], curIndexNames)
+      jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, curIndexNames)
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(0);
-          return db.createIndexesIfNotExist(dbName, tables[randomTableId], curIndexData);
+          return jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, curIndexData);
         })
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(curIndexNames.length);
-          return db.indexesExist(dbName, tables[randomTableId], curIndexNames);
+          return jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, curIndexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -1258,16 +1266,16 @@ describe('Jamadar', function() {
 
     it('should create indexes and return if they exist', function(done) {
       var indexesInDb = null;
-      db.indexesExist(dbName, tables[randomTableId], indexNames)
+      jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames)
         .then(function(results) {
           results.should.be.Array;
           indexesInDb = results.length;
-          return db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId]);
+          return jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, indexes[randomTableId]);
         })
         .then(function(results) {
           results.should.be.Array;
           results.should.have.length(indexNames.length - indexesInDb);
-          return db.indexesExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -1284,17 +1292,17 @@ describe('Jamadar', function() {
     });
 
     it('should migrate database with provided configuration', function(done) {
-      db.migrate(dbName, tables, indexes)
+      jamadar.migrate(dbName, tableConfig)
         .then(function(result) {
           mustBeTrue(result);
-          return db.dbsExist(dbName);
+          return jamadar.dbsExist(dbName);
 
         })
         .then(function(result) {
           result.should.be.Array;
           result.should.have.length(1);
           result.should.contain(dbName);
-          return db.tablesExist(dbName, tableNames);
+          return jamadar.tablesExist(dbName, tableNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -1302,7 +1310,7 @@ describe('Jamadar', function() {
           results.forEach(function(result) {
             tableNames.should.contain(result);
           });
-          return db.indexesExist(dbName, tables[randomTableId], indexNames);
+          return jamadar.indexesExist(dbName, tableConfig[randomTableId].table_name, indexNames);
         })
         .then(function(results) {
           results.should.be.Array;
@@ -1326,7 +1334,7 @@ describe('Jamadar', function() {
     });
 
     before(function(done) {
-      db.createIndexesIfNotExist(dbName, tables[randomTableId], indexes[randomTableId])
+      jamadar.createIndexesIfNotExist(dbName, tableConfig[randomTableId].table_name, indexes[randomTableId])
         .then(function(result) {
           done();
         })
@@ -1334,15 +1342,15 @@ describe('Jamadar', function() {
     });
 
     it('should throw an error when rethinkdbdash instance is not specified', function() {
-      db.Model().should.be.rejectedWith(Error);
+      jamadar.Model().should.be.rejectedWith(Error);
     });
 
     it('should throw an error when database name is not specified', function() {
-      db.Model(db.r).should.be.rejectedWith(Error);
+      jamadar.Model(jamadar.r).should.be.rejectedWith(Error);
     });
 
     it('should throw an error when table name is not specified', function() {
-      db.Model(db.r, dbName).should.be.rejectedWith(Error);
+      jamadar.Model(jamadar.r, dbName).should.be.rejectedWith(Error);
     });
 
     describe('get', function() {
@@ -1517,7 +1525,7 @@ describe('Jamadar', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id > 100;
         }).length;
-        UrlModel.filter(db.r.row('post_id').gt(100)).run()
+        UrlModel.filter(jamadar.r.row('post_id').gt(100)).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1556,7 +1564,7 @@ describe('Jamadar', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id > 100 && object.post_id < 200;
         }).length;
-        UrlModel.filter(db.r.row('post_id').gt(100).and(db.r.row('post_id').lt(200))).run()
+        UrlModel.filter(jamadar.r.row('post_id').gt(100).and(jamadar.r.row('post_id').lt(200))).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1569,7 +1577,7 @@ describe('Jamadar', function() {
         var totalUrls = objects.filter(function(object) {
           return object.post_id < 100;
         }).length;
-        UrlModel.filter(db.r.row('post_id').lt(100)).run()
+        UrlModel.filter(jamadar.r.row('post_id').lt(100)).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(totalUrls);
@@ -1580,7 +1588,7 @@ describe('Jamadar', function() {
 
       //It's a valid query but can't fetch nothing
       it('should fetch documents when a predicate is specified as ReQL', function(done) {
-        UrlModel.filter(db.r.row('post_id').eq(null)).run()
+        UrlModel.filter(jamadar.r.row('post_id').eq(null)).run()
           .then(function(results) {
             results.should.be.Array;
             results.should.have.length(0);

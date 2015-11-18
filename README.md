@@ -35,41 +35,51 @@ module.exports = {
     discovery: false,
     db: 'lolstack_dev'
   },
-  tables: {
-    url: 'urls',
-    user: 'users',
-    network: 'networks',
-    schedule: 'schedules',
-    post: 'posts',
-    picture: 'pictures'
-  },
-  indexes: {
-    user: [
-      { name: 'username' },
-      { name: 'email' }
-    ],
-    url: [
-      { name: 'url' },
-      { name: 'post_id' },
-      { name: 'created_at' },
-      { name: 'updated_at' },
-      { name: 'url_and_post_id', columns: [ 'url', 'post_id' ] }
-    ],
-    network: [
-      { name: 'name' }
-    ],
-    schedule: [
-      { name: 'nickname' },
-      { name: 'user_id' }
-    ],
-    post: [
-      { name: 'user_id' },
-      { name: 'network_id' },
-      { name: 'schedule_id' }
-    ],
-    picture: [
-      { name: 'user_id' }
-    ]
+  tableConfig: {
+    url: {
+      table_name: 'urls',
+      indexes: [
+        { name: 'url' },
+        { name: 'post_id' },
+        { name: 'created_at' },
+        { name: 'updated_at' },
+        { name: 'url_and_post_id', columns: [ 'url', 'post_id' ] }
+      ]
+    },
+    user: {
+      table_name: 'users',
+      indexes: [
+        { name: 'username' },
+        { name: 'email' }
+      ]
+    },
+    network: {
+      table_name: 'networks',
+      indexes: [
+        { name: 'name' }
+      ]
+    },
+    schedule: {
+      table_name: 'schedules',
+      indexes: [
+        { name: 'nickname' },
+        { name: 'user_id' }
+      ]
+    },
+    post: {
+      table_name: 'posts',
+      indexes: [
+        { name: 'user_id' },
+        { name: 'network_id' },
+        { name: 'schedule_id' }
+      ]
+    },
+    picture: {
+      table_name: 'pictures',
+      indexes: [
+        { name: 'user_id' }
+      ]
+    }
   }
 };
 ```
@@ -86,7 +96,7 @@ var config = require(path.join(__dirname, 'config'));
 
 var jamadar = new Jamadar(config.hosts);
 
-jamadar.migrate(config.hosts.db, config.tables, config.indexes)
+jamadar.migrate(config.hosts.db, config.tableConfig)
   .then(function(result) {
     debug('Database setup complete.');
     // Database is migrated

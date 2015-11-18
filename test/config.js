@@ -1,5 +1,25 @@
 'use strict';
 
+var tableConfig = {
+  url: {
+    table_name: 'urls',
+    indexes: [
+      { name: 'url' },
+      { name: 'post_id' },
+      { name: 'created_at' },
+      { name: 'updated_at' },
+      { name: 'url_and_post_id', fn: function(row) { return [row('url'), row('post_id')]; } }
+    ]
+  },
+  users: {
+    table_name: 'users',
+    indexes: [
+      { name: 'username' },
+      { name: 'email' }
+    ]
+  }
+};
+
 var config = {
   rethinkdb: {
     servers: [
@@ -10,25 +30,7 @@ var config = {
     discovery: false, //Setting to false. It seems to be creating a lot of issues.
     db: 'jamadar_test_afj928dfas'
   },
-  app: {
-    tables: {
-      url: 'urls',
-      user: 'users'
-    },
-    indexes: {
-      url: [
-        { name: 'url' },
-        { name: 'post_id' },
-        { name: 'created_at' },
-        { name: 'updated_at' },
-        { name: 'url_and_post_id', fn: function(row) { return [row('url'), row('post_id')]; } }
-      ],
-      user: [
-        { name: 'username' },
-        { name: 'email' }
-      ]
-    },
-  }
+  tableConfig: tableConfig
 };
 
 module.exports = config;

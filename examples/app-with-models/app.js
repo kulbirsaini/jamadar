@@ -7,7 +7,7 @@ var models = require(path.join(__dirname, './models'));
 
 var app = express();
 
-models.jamadar.migrate(models.dbInfo.hosts.db, models.dbInfo.tables, models.dbInfo.indexes)
+models.jamadar.migrate(models.dbInfo.hosts.db, models.dbInfo.tableConfig)
   .then(function(result) {
     console.log('Database migration complete');
 
@@ -20,5 +20,6 @@ models.jamadar.migrate(models.dbInfo.hosts.db, models.dbInfo.tables, models.dbIn
     });
   })
   .catch(function(error) {
-    console.log('Error in migrating database');
+    console.log('Error in migrating database:', error.message);
+    console.log(error.stack);
   });

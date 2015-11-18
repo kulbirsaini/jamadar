@@ -860,39 +860,39 @@ function dropIndexesIfExist(dbName, tableName, indexNames) {
  *        }
  * @return {Promise} Returns a promise resolved on and rejected on error
  */
-function migrate(dbName, tables, indexes) {
+function migrate(dbName, tableConfig) {
   var tableNames = [];
+  var tableIndexes = {};
   var verified = verifyArgs({ dbName: dbName });
   if (verified !== true) {
     return BPromise.reject(verified);
   }
 
-  if (!_.isObject(tables)) {
-    return BPromise.reject(new Error('Tables not specified or not a valid object'));
-  }
-  if (!_.isObject(indexes)) {
-    return BPromise.reject(new Error('Indexes not specified or not a valid object'));
+  if (!_.isObject(tableConfig)) {
+    return BPromise.reject(new Error('Table configuration not specified or not a valid object'));
   }
 
-  tableNames = _.values(tables);
+  Object.keys(tableConfig).forEach(function(tableId) {
+    tableNames.push(tableConfig[tableId].table_name);
+    if (_.isObject(tableConfig[tableId].indexes)) {
+      tableIndexes[tableId] = tableConfig[tableId].indexes;
+    }
+  });
+
   return createDbIfNotExists(dbName)
     .then(function(dbCreatedOrFound) {
-      if (dbCreatedOrFound) {
-        return createTablesIfNotExist(dbName, tableNames);
-      } else {
+      if (!dbCreatedOrFound) {
         return BPromise.reject(new Error('We failed to create database for unknown reasons'));
       }
+      return createTablesIfNotExist(dbName, tableNames);
     })
-    .then(function(tableCreatedOrFound) {
-      if (tableCreatedOrFound) {
-        return BPromise.all(
-          Object.keys(indexes).map(function(tableId) {
-            return createIndexesIfNotExist(dbName, tables[tableId], indexes[tableId]);
-          })
-        );
-      } else {
+    .then(function(tablesCreatedOrFound) {
+      if (!tablesCreatedOrFound) {
         return BPromise.reject(new Error('We failed to create tables for unknown reasons'));
       }
+      return BPromise.map(Object.keys(tableIndexes), function(tableId) {
+        return createIndexesIfNotExist(dbName, tableConfig[tableId].table_name, tableIndexes[tableId]);
+      }, { concurrency: 2 });
     })
     .then(function() {
       return true;
