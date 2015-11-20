@@ -65,11 +65,11 @@ function configuration(env) {
   env = env || process.NODE_ENV;
   switch(env) {
     case 'test':
-      return Object.assign({}, config, { hosts: { db: 'jamadar_test' } });
+      return Object.assign({}, config, { hosts: Object.assign({}, config.hosts, { db: 'jamadar_test' }) });
     case 'production':
-      return Object.assign({}, config, { hosts: { db: 'jamadar' } });
+      return Object.assign({}, config, { hosts: Object.assign({}, config.hosts, { db: 'jamadar' }) });
     default:
-      return Object.assign({}, config, { hosts: { db: 'jamadar_dev' } });
+      return Object.assign({}, config, { hosts: Object.assign({}, config.hosts, { db: 'jamadar_dev' }) });
   }
 }
 
